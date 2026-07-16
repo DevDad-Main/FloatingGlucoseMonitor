@@ -265,7 +265,6 @@ class GlucoseWidget(Static):
     value_mgdl = reactive(None)
     value_mmol = reactive(None)
     trend = reactive(None)
-    timestamp = reactive(None)
     use_mmol = reactive(False)
     history = reactive(list)
     show_graph = reactive(False)
@@ -277,9 +276,7 @@ class GlucoseWidget(Static):
                 yield Static(make_big_text("88"), id="big_value", classes="big_value")
                 yield Static("", id="trend", classes="trend")
             yield Static("", id="trend_label", classes="trend_label")
-            with Horizontal(classes="info"):
-                yield Static("--", id="timeago", classes="timeago")
-                yield Static("mg/dL", id="unit", classes="unit")
+            yield Static("mg/dL", id="unit", classes="unit")
             yield Static("", id="chart", classes="chart")
 
     def on_mount(self):
@@ -290,8 +287,6 @@ class GlucoseWidget(Static):
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         self.styles.background = t.get("bg", "#1e1e2e")
         for w in self.query(".trend_label"):
-            w.styles.color = t.get("muted", "#585b70")
-        for w in self.query(".timeago"):
             w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".unit"):
             w.styles.color = t.get("muted", "#585b70")
@@ -327,25 +322,6 @@ class GlucoseWidget(Static):
         if w:
             w.update(label)
             w.styles.color = t.get("muted", "#585b70")
-
-    def watch_timestamp(self, ts):
-        w = self._safe("timeago")
-        if not w:
-            return
-        if ts is None:
-            w.update("--")
-            return
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        delta = datetime.now(timezone.utc) - ts
-        mins = int(delta.total_seconds() / 60)
-        if mins < 1:
-            text = "just now"
-        elif mins < 60:
-            text = f"{mins}m ago"
-        else:
-            text = f"{mins // 60}h{mins % 60}m ago"
-        w.update(text)
 
     def watch_use_mmol(self, val):
         w = self._safe("unit")
@@ -471,11 +447,6 @@ class GlucoseApp(App):
         display: none;
     }
 
-    .info {
-        align: center middle;
-        height: 1;
-    }
-
     .trend_label {
         color: #585b70;
         content-align: center middle;
@@ -483,13 +454,11 @@ class GlucoseApp(App):
         height: 1;
     }
 
-    .timeago {
-        color: #585b70;
-        margin-right: 2;
-    }
-
     .unit {
         color: #585b70;
+        content-align: center middle;
+        width: 100%;
+        height: 1;
     }
 
     Header { display: none; }
@@ -593,7 +562,6 @@ class GlucoseApp(App):
         gw.value_mgdl = latest.value_in_mg_per_dl
         gw.value_mmol = latest.value
         gw.trend = latest.trend
-        gw.timestamp = latest.timestamp
         try:
             graph_data = self.client.graph(pid)
             if graph_data:
