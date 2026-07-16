@@ -270,6 +270,8 @@ class GlucoseWidget(Static):
         if ts is None:
             w.update("--")
             return
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
         delta = datetime.now(timezone.utc) - ts
         mins = int(delta.total_seconds() / 60)
         if mins < 1:
