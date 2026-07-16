@@ -22,11 +22,11 @@ from textual.screen import Screen
 CONFIG_PATH = os.path.expanduser("~/.config/glucose-monitor/config.json")
 
 TREND_GLYPH = {
-    Trend.DOWN_FAST: "\u2B07",
+    Trend.DOWN_FAST: "\u2b07",
     Trend.DOWN_SLOW: "\u2198",
-    Trend.STABLE: "\u27A1",
+    Trend.STABLE: "\u27a1",
     Trend.UP_SLOW: "\u2197",
-    Trend.UP_FAST: "\u2B06",
+    Trend.UP_FAST: "\u2b06",
 }
 
 TREND_LABEL = {
@@ -39,7 +39,8 @@ TREND_LABEL = {
 
 LOW = 70
 HIGH = 180
-REFRESH_SECS = 60
+REFRESH_SECS = 60  # Current glucose every 1 minute
+GRAPH_REFRESH_SECS = 300  # Graph every 5 minutes
 
 DEFAULT_THEME = {
     "bg": "#1e1e2e",
@@ -92,26 +93,25 @@ def color_for(val_mgdl: int, theme: dict) -> str:
     return theme.get("normal", DEFAULT_THEME["normal"])
 
 
-
 DIGITS = {
-    '0': ["███", "█ █", "█ █", "█ █", "███"],
-    '1': ["  █", "  █", "  █", "  █", "  █"],
-    '2': ["███", "  █", "███", "█  ", "███"],
-    '3': ["███", "  █", "███", "  █", "███"],
-    '4': ["█ █", "█ █", "███", "  █", "  █"],
-    '5': ["███", "█  ", "███", "  █", "███"],
-    '6': ["███", "█  ", "███", "█ █", "███"],
-    '7': ["███", "  █", "  █", "  █", "  █"],
-    '8': ["███", "█ █", "███", "█ █", "███"],
-    '9': ["███", "█ █", "███", "  █", "███"],
-    '.': ["   ", "   ", "   ", "   ", " · "],
+    "0": ["███", "█ █", "█ █", "█ █", "███"],
+    "1": ["  █", "  █", "  █", "  █", "  █"],
+    "2": ["███", "  █", "███", "█  ", "███"],
+    "3": ["███", "  █", "███", "  █", "███"],
+    "4": ["█ █", "█ █", "███", "  █", "  █"],
+    "5": ["███", "█  ", "███", "  █", "███"],
+    "6": ["███", "█  ", "███", "█ █", "███"],
+    "7": ["███", "  █", "  █", "  █", "  █"],
+    "8": ["███", "█ █", "███", "█ █", "███"],
+    "9": ["███", "█ █", "███", "  █", "███"],
+    ".": ["   ", "   ", "   ", "   ", " · "],
 }
 
 
 def make_big_text(text: str) -> str:
     lines = [""] * 5
     for ch in text:
-        pattern = DIGITS.get(ch, DIGITS['0'])
+        pattern = DIGITS.get(ch, DIGITS["0"])
         for i in range(5):
             lines[i] += pattern[i] + " "
     return "\n".join(lines)
@@ -131,20 +131,20 @@ def make_chart(values, timestamps=None):
 
     cols = [(value_row(v), int(v)) for v in values]
 
-    grid = [[' ' for _ in range(n)] for _ in range(height)]
+    grid = [[" " for _ in range(n)] for _ in range(height)]
 
     for i in range(n - 1):
         r, _ = cols[i]
         nr, _ = cols[i + 1]
         if nr < r:
-            grid[r][i] = '╱'
+            grid[r][i] = "╱"
         elif nr > r:
-            grid[r][i] = '╲'
+            grid[r][i] = "╲"
         else:
-            grid[r][i] = '─'
+            grid[r][i] = "─"
 
-    grid[cols[0][0]][0] = '·'
-    grid[cols[-1][0]][n - 1] = '·'
+    grid[cols[0][0]][0] = "·"
+    grid[cols[-1][0]][n - 1] = "·"
 
     label_width = max(len(str(mx)), len(str(mn)))
     y_labels = []
@@ -154,7 +154,7 @@ def make_chart(values, timestamps=None):
 
     lines = []
     for r in range(height):
-        lines.append(y_labels[r] + " " + ''.join(grid[r]))
+        lines.append(y_labels[r] + " " + "".join(grid[r]))
 
     if timestamps and len(timestamps) == n:
         times = []
@@ -178,7 +178,7 @@ def make_chart(values, timestamps=None):
                 col = i + len(label)
         lines.append(x_line)
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 REGION_HELP = "Options: US, EU, EU2, AE, AP, AU, CA, DE, FR, JP, LA, RU (Poland → EU)"
@@ -299,7 +299,11 @@ class GlucoseWidget(Static):
         if val is None:
             return
         t = getattr(self.app, "_theme", DEFAULT_THEME)
-        display = f"{self.value_mmol:.1f}" if self.use_mmol and self.value_mmol is not None else str(val)
+        display = (
+            f"{self.value_mmol:.1f}"
+            if self.use_mmol and self.value_mmol is not None
+            else str(val)
+        )
         clr = color_for(val, t)
         unit = "mmol/L" if self.use_mmol else "mg/dL"
         trend_char = TREND_GLYPH.get(self.trend, "")
@@ -484,6 +488,7 @@ class GlucoseApp(App):
         self.client = None
         self._running = True
         self._fetch_in_progress = False
+        self._last_graph_fetch = 0
 
     def compose(self):
         yield Header(show_clock=False)
@@ -517,70 +522,216 @@ class GlucoseApp(App):
 
     def _fetch_loop(self):
         region = self.config.get("region", "US")
+
         try:
             api_url_enum = APIUrl[region.upper()]
         except KeyError:
             api_url_enum = APIUrl.US
+
         email = self.config.get("email", "")
         password = get_password(email) or ""
+
         self.client = PyLibreLinkUp(
             email=email,
             password=password,
             api_url=api_url_enum,
         )
+
         backoff = REFRESH_SECS
+        pid = None
+
+        # A value of 0 means the graph will be fetched immediately
+        # after the first successful glucose reading.
+        last_graph_fetch = 0.0
+
+        # Authenticate and retrieve the patient once before polling.
+        try:
+            self.call_from_thread(
+                self._set_status,
+                "Authenticating…",
+            )
+
+            self.client.authenticate()
+            patients = self.client.get_patients()
+
+            if not patients:
+                self.call_from_thread(
+                    self._set_status,
+                    "No patients found - share from LibreLink app to LibreLinkUp",
+                )
+                self._fetch_in_progress = False
+                return
+
+            pid = patients[0].patient_id
+
+        except requests.exceptions.HTTPError as e:
+            code = e.response.status_code if e.response is not None else "?"
+
+            self.call_from_thread(
+                self._set_status,
+                f"Authentication failed: HTTP {code}",
+            )
+
+            self._fetch_in_progress = False
+            return
+
+        except Exception as e:
+            self.call_from_thread(
+                self._set_status,
+                f"Authentication failed: {str(e)[:60]}",
+            )
+
+            self._fetch_in_progress = False
+            return
+
         while self._running:
             self._fetch_in_progress = True
+
             try:
-                self.client.authenticate()
-                patients = self.client.get_patients()
-                if not patients:
-                    self.call_from_thread(self._set_status, "No patients found - share from LibreLink app to LibreLinkUp")
-                    time.sleep(REFRESH_SECS)
-                    continue
-                pid = patients[0].patient_id
                 latest = self.client.latest(pid)
+
                 if latest:
-                    self.call_from_thread(self._update_display, latest, pid)
+                    # Only update the current glucose reading here.
+                    self.call_from_thread(
+                        self._update_display,
+                        latest,
+                    )
+
                     backoff = REFRESH_SECS
+
+                    # Fetch graph history less frequently.
+                    now = time.monotonic()
+
+                    if now - last_graph_fetch >= GRAPH_REFRESH_SECS:
+                        try:
+                            graph_data = self.client.graph(pid)
+
+                            if graph_data:
+                                self.call_from_thread(
+                                    self._update_graph,
+                                    graph_data,
+                                )
+
+                                last_graph_fetch = now
+
+                        except requests.exceptions.HTTPError as graph_error:
+                            graph_code = (
+                                graph_error.response.status_code
+                                if graph_error.response is not None
+                                else None
+                            )
+
+                            # Do not let a graph error stop the current
+                            # glucose reading from being displayed.
+                            if graph_code in (429, 430):
+                                self.call_from_thread(
+                                    self._set_status,
+                                    "Graph request rate limited",
+                                )
+
+                        except requests.exceptions.RequestException:
+                            pass
+
+                        except Exception:
+                            pass
+
                 else:
-                    self.call_from_thread(self._set_status, "No glucose data")
+                    self.call_from_thread(
+                        self._set_status,
+                        "No glucose data",
+                    )
+
             except requests.exceptions.HTTPError as e:
-                code = e.response.status_code if e.response is not None else "?"
-                if code == 430:
+                code = e.response.status_code if e.response is not None else None
+
+                if code == 401:
+                    self.call_from_thread(
+                        self._set_status,
+                        "Session expired, signing in again…",
+                    )
+
+                    try:
+                        self.client.authenticate()
+                        latest = self.client.latest(pid)
+
+                        if latest:
+                            self.call_from_thread(
+                                self._update_display,
+                                latest,
+                            )
+
+                            backoff = REFRESH_SECS
+
+                    except Exception as auth_error:
+                        self.call_from_thread(
+                            self._set_status,
+                            f"Re-authentication failed: {str(auth_error)[:60]}",
+                        )
+
+                elif code in (429, 430):
                     for remaining in range(backoff, 0, -1):
                         if not self._running:
                             return
-                        self.call_from_thread(self._set_status, f"Rate limited, retry in {remaining}s")
+
+                        self.call_from_thread(
+                            self._set_status,
+                            f"Rate limited, retry in {remaining}s",
+                        )
+
                         time.sleep(1)
+
                     backoff = min(backoff * 2, 600)
-                    self.call_from_thread(self._set_status, "Retrying\u2026")
-                    time.sleep(1)
+
+                    self.call_from_thread(
+                        self._set_status,
+                        "Retrying…",
+                    )
+
                     continue
+
                 else:
-                    self.call_from_thread(self._set_status, f"HTTP {code}")
+                    display_code = code if code is not None else "?"
+
+                    self.call_from_thread(
+                        self._set_status,
+                        f"HTTP {display_code}",
+                    )
+
+            except requests.exceptions.RequestException as e:
+                self.call_from_thread(
+                    self._set_status,
+                    f"Network error: {str(e)[:60]}",
+                )
+
             except Exception as e:
-                self.call_from_thread(self._set_status, str(e)[:80])
+                self.call_from_thread(
+                    self._set_status,
+                    str(e)[:80],
+                )
+
             finally:
                 self._fetch_in_progress = False
 
+            # Current glucose refresh interval.
             for _ in range(REFRESH_SECS):
                 if not self._running:
                     return
+
                 time.sleep(1)
 
-    def _update_display(self, latest, pid):
+    def _update_display(self, latest):
         gw = self._glucose
+
         gw.value_mgdl = latest.value_in_mg_per_dl
         gw.value_mmol = latest.value_in_mg_per_dl / 18.0182
         gw.trend = latest.trend
-        try:
-            graph_data = self.client.graph(pid)
-            if graph_data:
-                gw.history = [g.value_in_mg_per_dl for g in graph_data[-40:]]
-                gw.history_times = [g.timestamp for g in graph_data[-40:]]
-        except Exception:
-            pass
+
+    def _update_graph(self, graph_data):
+        gw = self._glucose
+        recent = graph_data[-40:]
+
+        gw.history = [reading.value_in_mg_per_dl for reading in recent]
+        gw.history_times = [reading.timestamp for reading in recent]
 
     def _set_status(self, msg):
         if msg and hasattr(self, "_glucose"):
