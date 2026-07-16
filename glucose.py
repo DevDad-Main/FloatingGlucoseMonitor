@@ -22,11 +22,11 @@ from textual.screen import Screen
 CONFIG_PATH = os.path.expanduser("~/.config/glucose-monitor/config.json")
 
 TREND_GLYPH = {
-    Trend.DOWN_FAST: "\u2193",
+    Trend.DOWN_FAST: "\u2B07",
     Trend.DOWN_SLOW: "\u2198",
-    Trend.STABLE: "\u2192",
+    Trend.STABLE: "\u27A1",
     Trend.UP_SLOW: "\u2197",
-    Trend.UP_FAST: "\u2191",
+    Trend.UP_FAST: "\u2B06",
 }
 
 TREND_LABEL = {
@@ -274,13 +274,13 @@ class GlucoseWidget(Static):
     def compose(self):
         with Vertical(classes="main"):
             with Horizontal(classes="big_row"):
-                yield Static("", id="trend", classes="trend")
                 yield Static(make_big_text("88"), id="big_value", classes="big_value")
-            yield Static("", id="chart", classes="chart")
+                yield Static("", id="trend", classes="trend")
+            yield Static("", id="trend_label", classes="trend_label")
             with Horizontal(classes="info"):
-                yield Static("", id="trend_label", classes="trend_label")
                 yield Static("--", id="timeago", classes="timeago")
                 yield Static("mg/dL", id="unit", classes="unit")
+            yield Static("", id="chart", classes="chart")
 
     def on_mount(self):
         self.styles.width = "100%"
@@ -379,6 +379,7 @@ class GlucoseApp(App):
     Screen {
         background: #1e1e2e;
         border: solid #585b70;
+        padding: 0;
     }
 
     #login_box {
@@ -451,15 +452,13 @@ class GlucoseApp(App):
     .big_row {
         align: center middle;
         height: auto;
-        margin-bottom: 1;
     }
 
     .trend {
-        width: 5;
         text-style: bold;
         content-align: center middle;
         height: auto;
-        margin-right: 1;
+        margin-left: 1;
     }
 
     .big_value {
@@ -482,7 +481,9 @@ class GlucoseApp(App):
 
     .trend_label {
         color: #585b70;
-        margin-right: 2;
+        content-align: center middle;
+        width: 100%;
+        height: 1;
     }
 
     .timeago {
