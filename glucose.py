@@ -92,29 +92,6 @@ def color_for(val_mgdl: int, theme: dict) -> str:
     return theme.get("normal", DEFAULT_THEME["normal"])
 
 
-def make_sparkline(values, width=24, height=4):
-    if not values or len(values) < 2:
-        return ""
-    blocks = ["\u2581", "\u2582", "\u2583", "\u2584", "\u2585", "\u2586", "\u2587", "\u2588"]
-    mn, mx = min(values), max(values)
-    rng = mx - mn if mx != mn else 1
-    lines = []
-    for row in range(height, 0, -1):
-        lo = mn + (rng * (row - 1) / height)
-        hi = mn + (rng * row / height)
-        line = ""
-        for v in values:
-            if v >= hi:
-                line += blocks[-1]
-            elif v <= lo:
-                line += " "
-            else:
-                frac = (v - lo) / (hi - lo) if hi != lo else 0
-                idx = min(int(frac * len(blocks)), len(blocks) - 1)
-                line += blocks[idx]
-        lines.append(line)
-    return "\n".join(lines)
-
 
 DIGITS = {
     '0': ["███", "█ █", "█ █", "█ █", "███"],
@@ -138,6 +115,48 @@ def make_big_text(text: str) -> str:
         for i in range(5):
             lines[i] += pattern[i] + " "
     return "\n".join(lines)
+
+
+def make_chart(values):
+    if not values or len(values) < 2:
+        return ""
+    height = 4
+    n = len(values)
+    mn, mx = int(min(values)), int(max(values))
+    rng = mx - mn if mx != mn else 1
+
+    def value_row(v):
+        return round((mx - int(v)) / rng * (height - 1))
+
+    cols = [(value_row(v), int(v)) for v in values]
+
+    grid = [[' ' for _ in range(n)] for _ in range(height)]
+
+    for i in range(n - 1):
+        r, _ = cols[i]
+        nr, _ = cols[i + 1]
+        if nr < r:
+            grid[r][i] = '╱'
+        elif nr > r:
+            grid[r][i] = '╲'
+        else:
+            grid[r][i] = '─'
+
+    grid[cols[0][0]][0] = '·'
+    grid[cols[-1][0]][n - 1] = '·'
+
+    label_width = max(len(str(mx)), len(str(mn)))
+    lines = []
+    for r in range(height):
+        if r == 0:
+            pref = f"{mx}".rjust(label_width)
+        elif r == height - 1:
+            pref = f"{mn}".rjust(label_width)
+        else:
+            pref = " " * label_width
+        lines.append(pref + " " + ''.join(grid[r]))
+
+    return '\n'.join(lines)
 
 
 REGION_HELP = "Options: US, EU, EU2, AE, AP, AU, CA, DE, FR, JP, LA, RU (Poland → EU)"
@@ -227,19 +246,18 @@ class GlucoseWidget(Static):
     timestamp = reactive(None)
     use_mmol = reactive(False)
     history = reactive(list)
-    countdown = reactive(0)
+    show_graph = reactive(False)
 
     def compose(self):
         with Vertical(classes="main"):
             with Horizontal(classes="big_row"):
                 yield Static("", id="trend", classes="trend")
                 yield Static(make_big_text("88"), id="big_value", classes="big_value")
-            with Horizontal(classes="info_row"):
-                yield Static("connecting...", id="trend_label", classes="trend_label")
+            yield Static("", id="chart", classes="chart")
+            with Horizontal(classes="info"):
+                yield Static("", id="trend_label", classes="trend_label")
                 yield Static("--", id="timeago", classes="timeago")
                 yield Static("mg/dL", id="unit", classes="unit")
-                yield Static("", id="countdown", classes="countdown")
-            yield Static("", id="sparkline", classes="sparkline")
 
     def on_mount(self):
         self.styles.width = "100%"
@@ -249,15 +267,11 @@ class GlucoseWidget(Static):
     def _apply_theme(self):
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         self.styles.background = t.get("bg", "#1e1e2e")
-        for w in self.query(".sparkline"):
-            w.styles.color = t.get("accent", "#f9e2af")
         for w in self.query(".trend_label"):
             w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".timeago"):
             w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".unit"):
-            w.styles.color = t.get("muted", "#585b70")
-        for w in self.query(".countdown"):
             w.styles.color = t.get("muted", "#585b70")
 
     def _safe(self, wid):
@@ -319,14 +333,22 @@ class GlucoseWidget(Static):
             self.watch_value_mgdl(self.value_mgdl)
 
     def watch_history(self, vals):
-        w = self._safe("sparkline")
-        if w:
-            w.update(make_sparkline(vals))
+        if self.show_graph:
+            self._render_chart()
 
-    def watch_countdown(self, val):
-        w = self._safe("countdown")
-        if w:
-            w.update(f"  {val}s" if val > 0 else "")
+    def watch_show_graph(self, val):
+        self._render_chart()
+
+    def _render_chart(self):
+        w = self._safe("chart")
+        if not w:
+            return
+        if self.show_graph and self.history and len(self.history) >= 2:
+            w.update(make_chart(self.history))
+            w.styles.display = "block"
+        else:
+            w.update("")
+            w.styles.display = "none"
 
 
 class GlucoseApp(App):
@@ -395,18 +417,17 @@ class GlucoseApp(App):
         align: center middle;
         width: 100%;
         height: 100%;
-        padding: 2 4;
     }
 
     .main {
         align: center middle;
         width: 100%;
+        height: 100%;
     }
 
     .big_row {
         align: center middle;
         height: auto;
-        min-height: 6;
         margin-bottom: 1;
     }
 
@@ -415,47 +436,39 @@ class GlucoseApp(App):
         text-style: bold;
         content-align: center middle;
         height: auto;
+        margin-right: 1;
     }
 
     .big_value {
         text-style: bold;
         content-align: center middle;
-        min-height: 5;
     }
 
-    .info_row {
-        align: center middle;
-        height: 1;
-        margin-bottom: 1;
-    }
-
-    .trend_label {
-        color: #585b70;
-        margin-right: 1;
-    }
-
-    .sparkline {
+    .chart {
         color: #f9e2af;
         content-align: center middle;
         width: 100%;
         height: 4;
-        border-top: dashed #45475a;
-        padding-top: 1;
+        display: none;
+    }
+
+    .info {
+        align: center middle;
+        height: 1;
+    }
+
+    .trend_label {
+        color: #585b70;
+        margin-right: 2;
     }
 
     .timeago {
         color: #585b70;
-        margin-left: 2;
-        margin-right: 1;
+        margin-right: 2;
     }
 
     .unit {
         color: #585b70;
-    }
-
-    .countdown {
-        color: #585b70;
-        margin-left: 1;
     }
 
     Header { display: none; }
@@ -465,6 +478,7 @@ class GlucoseApp(App):
     BINDINGS = [
         ("u", "toggle_unit", "Unit"),
         ("r", "refresh", "Refresh"),
+        ("g", "toggle_graph", "Graph"),
         ("l", "login", "Login"),
         ("q", "quit", "Quit"),
     ]
@@ -538,10 +552,9 @@ class GlucoseApp(App):
             except Exception as e:
                 self.call_from_thread(self._set_status, str(e)[:80])
 
-            for remaining in range(REFRESH_SECS, 0, -1):
+            for _ in range(REFRESH_SECS):
                 if not self._running:
                     return
-                self.call_from_thread(lambda r=remaining: setattr(self._glucose, "countdown", r))
                 time.sleep(1)
 
     def _update_display(self, latest, pid):
@@ -568,6 +581,10 @@ class GlucoseApp(App):
     def action_login(self):
         self._running = False
         self.push_screen(LoginScreen())
+
+    def action_toggle_graph(self):
+        if hasattr(self, "_glucose"):
+            self._glucose.show_graph = not self._glucose.show_graph
 
     def action_toggle_unit(self):
         if hasattr(self, "_glucose"):
