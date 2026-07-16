@@ -560,7 +560,7 @@ class GlucoseApp(App):
     def _update_display(self, latest, pid):
         gw = self._glucose
         gw.value_mgdl = latest.value_in_mg_per_dl
-        gw.value_mmol = latest.value
+        gw.value_mmol = latest.value_in_mg_per_dl / 18.0182
         gw.trend = latest.trend
         try:
             graph_data = self.client.graph(pid)

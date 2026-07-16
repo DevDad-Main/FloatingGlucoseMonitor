@@ -8,6 +8,6 @@ if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
     rm -f "$PIDFILE"
     notify-send "Glucose Monitor" "Stopped" 2>/dev/null || true
 else
-    kitty --class glucose-monitor -e "$DIR/run.sh" &
+    kitty --class glucose-monitor -o window_padding_width=0 -e "$DIR/run.sh" &
     echo $! > "$PIDFILE"
 fi
