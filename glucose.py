@@ -302,6 +302,9 @@ class GlucoseWidget(Static):
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         display = f"{self.value_mmol:.1f}" if self.use_mmol and self.value_mmol is not None else str(val)
         clr = color_for(val, t)
+        unit = "mmol/L" if self.use_mmol else "mg/dL"
+        trend_char = TREND_GLYPH.get(self.trend, "")
+        label = TREND_LABEL.get(self.trend, "")
 
         w = self._safe("big_value")
         if w:
@@ -310,12 +313,9 @@ class GlucoseWidget(Static):
 
         w = self._safe("compact_val")
         if w:
-            trend_char = TREND_GLYPH.get(self.trend, "")
-            unit = "mmol/L" if self.use_mmol else "mg/dL"
-            w.update(f"{display} {trend_char}  {unit}")
+            w.update(f"{display} {trend_char}  {unit}  {label}")
             w.styles.color = clr
 
-        trend_char = TREND_GLYPH.get(self.trend, "")
         w = self._safe("trend")
         if w:
             w.update(trend_char)
@@ -339,15 +339,18 @@ class GlucoseWidget(Static):
     def watch_show_graph(self, val):
         big_row = self.query_one(".big_row")
         compact_row = self.query_one(".compact_row")
+        trend_label = self.query_one("#trend_label")
         chart = self.query_one("#chart")
         if val:
             big_row.styles.display = "none"
             compact_row.styles.display = "block"
+            trend_label.styles.display = "none"
             chart.styles.display = "block"
             self._render_chart()
         else:
             big_row.styles.display = "block"
             compact_row.styles.display = "none"
+            trend_label.styles.display = "block"
             chart.styles.display = "none"
 
     def _render_chart(self):
