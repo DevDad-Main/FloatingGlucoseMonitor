@@ -284,7 +284,6 @@ class GlucoseWidget(Static):
 
     def on_mount(self):
         self.styles.width = "100%"
-        self.styles.height = "100%"
         self._apply_theme()
 
     def _apply_theme(self):
@@ -440,13 +439,11 @@ class GlucoseApp(App):
         layout: vertical;
         align: center middle;
         width: 100%;
-        height: 100%;
     }
 
     .main {
         align: center middle;
         width: 100%;
-        height: 100%;
     }
 
     .big_row {
@@ -574,11 +571,10 @@ class GlucoseApp(App):
             except requests.exceptions.HTTPError as e:
                 code = e.response.status_code if e.response is not None else "?"
                 if code == 430:
-                    msg = f"Rate limited, retrying in {backoff}s"
-                    self.call_from_thread(self._set_status, msg)
-                    for _ in range(backoff):
+                    for remaining in range(backoff, 0, -1):
                         if not self._running:
                             return
+                        self.call_from_thread(self._set_status, f"Rate limited, retry in {remaining}s")
                         time.sleep(1)
                     backoff = min(backoff * 2, 600)
                     continue
