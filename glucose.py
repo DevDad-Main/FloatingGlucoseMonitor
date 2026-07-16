@@ -232,7 +232,7 @@ class GlucoseWidget(Static):
         with Vertical(classes="main"):
             with Horizontal(classes="big_row"):
                 yield Static("", id="trend", classes="trend")
-                yield Static("", id="big_value", classes="big_value")
+                yield Static(make_big_text("88"), id="big_value", classes="big_value")
             with Horizontal(classes="info_row"):
                 yield Static("", id="trend_label", classes="trend_label")
                 yield Static("--", id="timeago", classes="timeago")
@@ -240,6 +240,8 @@ class GlucoseWidget(Static):
             yield Static("", id="sparkline", classes="sparkline")
 
     def on_mount(self):
+        self.styles.width = "100%"
+        self.styles.height = "100%"
         self._apply_theme()
 
     def _apply_theme(self):
@@ -390,12 +392,12 @@ class GlucoseApp(App):
     .main {
         align: center middle;
         width: 100%;
-        height: 100%;
     }
 
     .big_row {
         align: center middle;
         height: auto;
+        min-height: 6;
         margin-bottom: 1;
     }
 
@@ -409,6 +411,7 @@ class GlucoseApp(App):
     .big_value {
         text-style: bold;
         content-align: center middle;
+        min-height: 5;
     }
 
     .info_row {
