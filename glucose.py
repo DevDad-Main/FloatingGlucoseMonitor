@@ -117,12 +117,13 @@ def make_big_text(text: str) -> str:
     return "\n".join(lines)
 
 
-def make_chart(values):
+def make_chart(values, timestamps=None):
     if not values or len(values) < 2:
         return ""
     height = 4
     n = len(values)
-    mn, mx = int(min(values)), int(max(values))
+    raw_mn, raw_mx = min(values), max(values)
+    mn, mx = int(raw_mn), int(raw_mx)
     rng = mx - mn if mx != mn else 1
 
     def value_row(v):
@@ -146,15 +147,36 @@ def make_chart(values):
     grid[cols[-1][0]][n - 1] = '·'
 
     label_width = max(len(str(mx)), len(str(mn)))
+    y_labels = []
+    for r in range(height):
+        v = round(mx - (r / (height - 1)) * rng) if rng > 0 else mx
+        y_labels.append(f"{v}".rjust(label_width))
+
     lines = []
     for r in range(height):
-        if r == 0:
-            pref = f"{mx}".rjust(label_width)
-        elif r == height - 1:
-            pref = f"{mn}".rjust(label_width)
-        else:
-            pref = " " * label_width
-        lines.append(pref + " " + ''.join(grid[r]))
+        lines.append(y_labels[r] + " " + ''.join(grid[r]))
+
+    if timestamps and len(timestamps) == n:
+        times = []
+        for t in timestamps:
+            if t.tzinfo is None:
+                t = t.replace(tzinfo=timezone.utc)
+            times.append(t.astimezone().strftime("%H:%M"))
+
+        tick_cols = []
+        step = max(1, n // 5)
+        for i in range(0, n, step):
+            tick_cols.append(i)
+
+        x_line = " " * (label_width + 1)
+        col = 0
+        for i in tick_cols:
+            label = times[i]
+            if col <= i:
+                gap = i - col
+                x_line += " " * gap + label
+                col = i + len(label)
+        lines.append(x_line)
 
     return '\n'.join(lines)
 
@@ -247,6 +269,7 @@ class GlucoseWidget(Static):
     use_mmol = reactive(False)
     history = reactive(list)
     show_graph = reactive(False)
+    history_times = reactive(list)
 
     def compose(self):
         with Vertical(classes="main"):
@@ -344,7 +367,7 @@ class GlucoseWidget(Static):
         if not w:
             return
         if self.show_graph and self.history and len(self.history) >= 2:
-            w.update(make_chart(self.history))
+            w.update(make_chart(self.history, self.history_times))
             w.styles.display = "block"
         else:
             w.update("")
@@ -448,7 +471,7 @@ class GlucoseApp(App):
         color: #f9e2af;
         content-align: center middle;
         width: 100%;
-        height: 4;
+        height: 5;
         display: none;
     }
 
@@ -531,24 +554,35 @@ class GlucoseApp(App):
             password=password,
             api_url=api_url_enum,
         )
+        backoff = REFRESH_SECS
         while self._running:
             try:
                 self.client.authenticate()
                 patients = self.client.get_patients()
                 if not patients:
-                    self.call_from_thread(self._set_status, "No patients - share from LibreLink app to LibreLinkUp first")
+                    self.call_from_thread(self._set_status, "No patients found - share from LibreLink app to LibreLinkUp")
                     time.sleep(REFRESH_SECS)
                     continue
                 pid = patients[0].patient_id
                 latest = self.client.latest(pid)
                 if latest:
                     self.call_from_thread(self._update_display, latest, pid)
+                    backoff = REFRESH_SECS
                 else:
-                    self.call_from_thread(self._set_status, "No glucose data available")
+                    self.call_from_thread(self._set_status, "No glucose data")
             except requests.exceptions.HTTPError as e:
                 code = e.response.status_code if e.response is not None else "?"
-                msg = str(e)[:60]
-                self.call_from_thread(self._set_status, f"HTTP {code}: {msg}")
+                if code == 430:
+                    msg = f"Rate limited, retrying in {backoff}s"
+                    self.call_from_thread(self._set_status, msg)
+                    for _ in range(backoff):
+                        if not self._running:
+                            return
+                        time.sleep(1)
+                    backoff = min(backoff * 2, 600)
+                    continue
+                else:
+                    self.call_from_thread(self._set_status, f"HTTP {code}")
             except Exception as e:
                 self.call_from_thread(self._set_status, str(e)[:80])
 
@@ -567,6 +601,7 @@ class GlucoseApp(App):
             graph_data = self.client.graph(pid)
             if graph_data:
                 gw.history = [g.value_in_mg_per_dl for g in graph_data[-40:]]
+                gw.history_times = [g.timestamp for g in graph_data[-40:]]
         except Exception:
             pass
 
