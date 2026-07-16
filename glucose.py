@@ -227,6 +227,7 @@ class GlucoseWidget(Static):
     timestamp = reactive(None)
     use_mmol = reactive(False)
     history = reactive(list)
+    countdown = reactive(0)
 
     def compose(self):
         with Vertical(classes="main"):
@@ -234,9 +235,10 @@ class GlucoseWidget(Static):
                 yield Static("", id="trend", classes="trend")
                 yield Static(make_big_text("88"), id="big_value", classes="big_value")
             with Horizontal(classes="info_row"):
-                yield Static("", id="trend_label", classes="trend_label")
+                yield Static("connecting...", id="trend_label", classes="trend_label")
                 yield Static("--", id="timeago", classes="timeago")
                 yield Static("mg/dL", id="unit", classes="unit")
+                yield Static("", id="countdown", classes="countdown")
             yield Static("", id="sparkline", classes="sparkline")
 
     def on_mount(self):
@@ -248,13 +250,14 @@ class GlucoseWidget(Static):
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         self.styles.background = t.get("bg", "#1e1e2e")
         for w in self.query(".sparkline"):
-            w.styles.background = t.get("surface", "#313244")
             w.styles.color = t.get("accent", "#f9e2af")
         for w in self.query(".trend_label"):
             w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".timeago"):
             w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".unit"):
+            w.styles.color = t.get("muted", "#585b70")
+        for w in self.query(".countdown"):
             w.styles.color = t.get("muted", "#585b70")
 
     def _safe(self, wid):
@@ -319,6 +322,11 @@ class GlucoseWidget(Static):
         w = self._safe("sparkline")
         if w:
             w.update(make_sparkline(vals))
+
+    def watch_countdown(self, val):
+        w = self._safe("countdown")
+        if w:
+            w.update(f"  {val}s" if val > 0 else "")
 
 
 class GlucoseApp(App):
@@ -445,6 +453,11 @@ class GlucoseApp(App):
         color: #585b70;
     }
 
+    .countdown {
+        color: #585b70;
+        margin-left: 1;
+    }
+
     Header { display: none; }
     Footer { display: none; }
     """
@@ -525,9 +538,10 @@ class GlucoseApp(App):
             except Exception as e:
                 self.call_from_thread(self._set_status, str(e)[:80])
 
-            for _ in range(REFRESH_SECS):
+            for remaining in range(REFRESH_SECS, 0, -1):
                 if not self._running:
                     return
+                self.call_from_thread(lambda r=remaining: setattr(self._glucose, "countdown", r))
                 time.sleep(1)
 
     def _update_display(self, latest, pid):
