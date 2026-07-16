@@ -104,7 +104,7 @@ DIGITS = {
     '7': ["███", "  █", "  █", "  █", "  █"],
     '8': ["███", "█ █", "███", "█ █", "███"],
     '9': ["███", "█ █", "███", "  █", "███"],
-    '.': ["   ", "   ", "   ", "  █", "  █"],
+    '.': ["   ", "   ", "   ", "   ", " · "],
 }
 
 
@@ -278,7 +278,6 @@ class GlucoseWidget(Static):
             with Horizontal(classes="compact_row"):
                 yield Static("", id="compact_val", classes="compact_val")
             yield Static("", id="trend_label", classes="trend_label")
-            yield Static("mg/dL", id="unit", classes="unit")
             yield Static("", id="chart", classes="chart")
 
     def on_mount(self):
@@ -290,10 +289,6 @@ class GlucoseWidget(Static):
         self.styles.background = t.get("bg", "#1e1e2e")
         for w in self.query(".trend_label"):
             w.styles.color = t.get("muted", "#585b70")
-        for w in self.query(".unit"):
-            w.styles.color = t.get("muted", "#585b70")
-        for w in self.query(".compact_val"):
-            w.styles.color = t.get("accent", "#f9e2af")
 
     def _safe(self, wid):
         try:
@@ -327,15 +322,13 @@ class GlucoseWidget(Static):
             w.styles.color = clr
 
         label = TREND_LABEL.get(self.trend, "")
+        unit = "mmol/L" if self.use_mmol else "mg/dL"
         w = self._safe("trend_label")
         if w:
-            w.update(label)
+            w.update(f"{label}  {unit}" if label else unit)
             w.styles.color = t.get("muted", "#585b70")
 
     def watch_use_mmol(self, val):
-        w = self._safe("unit")
-        if w:
-            w.update("mmol/L" if val else "mg/dL")
         if self.value_mgdl is not None:
             self.watch_value_mgdl(self.value_mgdl)
 
@@ -477,13 +470,6 @@ class GlucoseApp(App):
     }
 
     .trend_label {
-        color: #585b70;
-        content-align: center middle;
-        width: 100%;
-        height: 1;
-    }
-
-    .unit {
         color: #585b70;
         content-align: center middle;
         width: 100%;
