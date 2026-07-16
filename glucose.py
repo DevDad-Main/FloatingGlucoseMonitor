@@ -275,6 +275,7 @@ class GlucoseWidget(Static):
             with Horizontal(classes="big_row"):
                 yield Static(make_big_text("88"), id="big_value", classes="big_value")
                 yield Static("", id="trend", classes="trend")
+                yield Static("mg/dL", id="unit_val", classes="unit_val")
             with Horizontal(classes="compact_row"):
                 yield Static("", id="compact_val", classes="compact_val")
             yield Static("", id="trend_label", classes="trend_label")
@@ -288,6 +289,8 @@ class GlucoseWidget(Static):
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         self.styles.background = t.get("bg", "#1e1e2e")
         for w in self.query(".trend_label"):
+            w.styles.color = t.get("muted", "#585b70")
+        for w in self.query(".unit_val"):
             w.styles.color = t.get("muted", "#585b70")
 
     def _safe(self, wid):
@@ -321,11 +324,15 @@ class GlucoseWidget(Static):
             w.update(trend_char)
             w.styles.color = clr
 
+        w = self._safe("unit_val")
+        if w:
+            w.update(unit)
+            w.styles.color = t.get("muted", "#585b70")
+
         label = TREND_LABEL.get(self.trend, "")
-        unit = "mmol/L" if self.use_mmol else "mg/dL"
         w = self._safe("trend_label")
         if w:
-            w.update(f"{label}  {unit}" if label else unit)
+            w.update(label)
             w.styles.color = t.get("muted", "#585b70")
 
     def watch_use_mmol(self, val):
@@ -455,6 +462,12 @@ class GlucoseApp(App):
     .trend {
         text-style: bold;
         content-align: center middle;
+        height: auto;
+        margin-left: 1;
+    }
+
+    .unit_val {
+        content-align: left middle;
         height: auto;
         margin-left: 1;
     }
