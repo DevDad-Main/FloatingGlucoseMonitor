@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import keyring
+import requests
 from pylibrelinkup import PyLibreLinkUp
 from pylibrelinkup.api_url import APIUrl
 from pylibrelinkup.models.data import Trend
@@ -418,6 +419,7 @@ class GlucoseApp(App):
     BINDINGS = [
         ("u", "toggle_unit", "Unit"),
         ("r", "refresh", "Refresh"),
+        ("l", "login", "Login"),
         ("q", "quit", "Quit"),
     ]
 
@@ -483,6 +485,10 @@ class GlucoseApp(App):
                     self.call_from_thread(self._update_display, latest, pid)
                 else:
                     self.call_from_thread(self._set_status, "No glucose data available")
+            except requests.exceptions.HTTPError as e:
+                code = e.response.status_code if e.response is not None else "?"
+                msg = str(e)[:60]
+                self.call_from_thread(self._set_status, f"HTTP {code}: {msg}")
             except Exception as e:
                 self.call_from_thread(self._set_status, str(e)[:80])
 
@@ -511,6 +517,10 @@ class GlucoseApp(App):
                 w.update(msg)
             except Exception:
                 pass
+
+    def action_login(self):
+        self._running = False
+        self.push_screen(LoginScreen())
 
     def action_toggle_unit(self):
         if hasattr(self, "_glucose"):
