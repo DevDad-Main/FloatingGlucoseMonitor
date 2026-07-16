@@ -116,6 +116,30 @@ def make_sparkline(values, width=24, height=4):
     return "\n".join(lines)
 
 
+DIGITS = {
+    '0': ["███", "█ █", "█ █", "█ █", "███"],
+    '1': ["  █", "  █", "  █", "  █", "  █"],
+    '2': ["███", "  █", "███", "█  ", "███"],
+    '3': ["███", "  █", "███", "  █", "███"],
+    '4': ["█ █", "█ █", "███", "  █", "  █"],
+    '5': ["███", "█  ", "███", "  █", "███"],
+    '6': ["███", "█  ", "███", "█ █", "███"],
+    '7': ["███", "  █", "  █", "  █", "  █"],
+    '8': ["███", "█ █", "███", "█ █", "███"],
+    '9': ["███", "█ █", "███", "  █", "███"],
+    '.': ["   ", "   ", "   ", "  █", "  █"],
+}
+
+
+def make_big_text(text: str) -> str:
+    lines = [""] * 5
+    for ch in text:
+        pattern = DIGITS.get(ch, DIGITS['0'])
+        for i in range(5):
+            lines[i] += pattern[i] + " "
+    return "\n".join(lines)
+
+
 REGION_HELP = "Options: US, EU, EU2, AE, AP, AU, CA, DE, FR, JP, LA, RU (Poland → EU)"
 
 
@@ -206,14 +230,14 @@ class GlucoseWidget(Static):
 
     def compose(self):
         with Vertical(classes="main"):
-            with Horizontal(classes="value_row"):
+            with Horizontal(classes="big_row"):
                 yield Static("", id="trend", classes="trend")
-                yield Static("---", id="value", classes="value")
-            yield Static("", id="trend_label", classes="trend_label")
-            yield Static("", id="sparkline", classes="sparkline")
-            with Horizontal(classes="footer_row"):
+                yield Static("", id="big_value", classes="big_value")
+            with Horizontal(classes="info_row"):
+                yield Static("", id="trend_label", classes="trend_label")
                 yield Static("--", id="timeago", classes="timeago")
                 yield Static("mg/dL", id="unit", classes="unit")
+            yield Static("", id="sparkline", classes="sparkline")
 
     def on_mount(self):
         self._apply_theme()
@@ -224,11 +248,11 @@ class GlucoseWidget(Static):
         for w in self.query(".sparkline"):
             w.styles.background = t.get("surface", "#313244")
             w.styles.color = t.get("accent", "#f9e2af")
+        for w in self.query(".trend_label"):
+            w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".timeago"):
             w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".unit"):
-            w.styles.color = t.get("muted", "#585b70")
-        for w in self.query(".trend_label"):
             w.styles.color = t.get("muted", "#585b70")
 
     def _safe(self, wid):
@@ -239,16 +263,16 @@ class GlucoseWidget(Static):
 
     def watch_value_mgdl(self, val):
         if val is None:
-            w = self._safe("value")
+            w = self._safe("big_value")
             if w:
-                w.update("---")
+                w.update("")
             return
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         display = f"{self.value_mmol:.1f}" if self.use_mmol and self.value_mmol is not None else str(val)
         clr = color_for(val, t)
-        w = self._safe("value")
+        w = self._safe("big_value")
         if w:
-            w.update(display)
+            w.update(make_big_text(display))
             w.styles.color = clr
 
         trend_char = TREND_GLYPH.get(self.trend, "")
@@ -366,30 +390,36 @@ class GlucoseApp(App):
     .main {
         align: center middle;
         width: 100%;
+        height: 100%;
     }
 
-    .value_row {
+    .big_row {
         align: center middle;
-        height: 6;
+        height: auto;
+        margin-bottom: 1;
     }
 
     .trend {
-        width: 3;
+        width: 4;
         text-style: bold;
-        content-align: right middle;
+        content-align: center middle;
+        height: auto;
     }
 
-    .value {
+    .big_value {
         text-style: bold;
-        content-align: left middle;
-        min-width: 5;
+        content-align: center middle;
+    }
+
+    .info_row {
+        align: center middle;
+        height: 1;
+        margin-bottom: 1;
     }
 
     .trend_label {
         color: #585b70;
-        content-align: center middle;
-        width: 100%;
-        height: 1;
+        margin-right: 2;
     }
 
     .sparkline {
@@ -398,11 +428,6 @@ class GlucoseApp(App):
         width: 100%;
         height: 4;
         background: #313244;
-    }
-
-    .footer_row {
-        align: center middle;
-        height: 1;
     }
 
     .timeago {
