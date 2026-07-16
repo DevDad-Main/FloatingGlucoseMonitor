@@ -387,6 +387,7 @@ class GlucoseApp(App):
         align: center middle;
         width: 100%;
         height: 100%;
+        padding: 2 4;
     }
 
     .main {
@@ -402,7 +403,7 @@ class GlucoseApp(App):
     }
 
     .trend {
-        width: 4;
+        width: 5;
         text-style: bold;
         content-align: center middle;
         height: auto;
@@ -422,7 +423,7 @@ class GlucoseApp(App):
 
     .trend_label {
         color: #585b70;
-        margin-right: 2;
+        margin-right: 1;
     }
 
     .sparkline {
@@ -430,12 +431,14 @@ class GlucoseApp(App):
         content-align: center middle;
         width: 100%;
         height: 4;
-        background: #313244;
+        border-top: dashed #45475a;
+        padding-top: 1;
     }
 
     .timeago {
         color: #585b70;
-        margin-right: 2;
+        margin-left: 2;
+        margin-right: 1;
     }
 
     .unit {
@@ -536,7 +539,7 @@ class GlucoseApp(App):
         try:
             graph_data = self.client.graph(pid)
             if graph_data:
-                gw.history = [g.value_in_mg_per_dl for g in graph_data[-24:]]
+                gw.history = [g.value_in_mg_per_dl for g in graph_data[-40:]]
         except Exception:
             pass
 
