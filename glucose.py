@@ -275,6 +275,8 @@ class GlucoseWidget(Static):
             with Horizontal(classes="big_row"):
                 yield Static(make_big_text("88"), id="big_value", classes="big_value")
                 yield Static("", id="trend", classes="trend")
+            with Horizontal(classes="compact_row"):
+                yield Static("", id="compact_val", classes="compact_val")
             yield Static("", id="trend_label", classes="trend_label")
             yield Static("mg/dL", id="unit", classes="unit")
             yield Static("", id="chart", classes="chart")
@@ -290,6 +292,8 @@ class GlucoseWidget(Static):
             w.styles.color = t.get("muted", "#585b70")
         for w in self.query(".unit"):
             w.styles.color = t.get("muted", "#585b70")
+        for w in self.query(".compact_val"):
+            w.styles.color = t.get("accent", "#f9e2af")
 
     def _safe(self, wid):
         try:
@@ -299,16 +303,21 @@ class GlucoseWidget(Static):
 
     def watch_value_mgdl(self, val):
         if val is None:
-            w = self._safe("big_value")
-            if w:
-                w.update("")
             return
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         display = f"{self.value_mmol:.1f}" if self.use_mmol and self.value_mmol is not None else str(val)
         clr = color_for(val, t)
+
         w = self._safe("big_value")
         if w:
             w.update(make_big_text(display))
+            w.styles.color = clr
+
+        w = self._safe("compact_val")
+        if w:
+            trend_char = TREND_GLYPH.get(self.trend, "")
+            unit = "mmol/L" if self.use_mmol else "mg/dL"
+            w.update(f"{display} {trend_char}  {unit}")
             w.styles.color = clr
 
         trend_char = TREND_GLYPH.get(self.trend, "")
@@ -335,7 +344,18 @@ class GlucoseWidget(Static):
             self._render_chart()
 
     def watch_show_graph(self, val):
-        self._render_chart()
+        big_row = self.query_one(".big_row")
+        compact_row = self.query_one(".compact_row")
+        chart = self.query_one("#chart")
+        if val:
+            big_row.styles.display = "none"
+            compact_row.styles.display = "block"
+            chart.styles.display = "block"
+            self._render_chart()
+        else:
+            big_row.styles.display = "block"
+            compact_row.styles.display = "none"
+            chart.styles.display = "none"
 
     def _render_chart(self):
         w = self._safe("chart")
@@ -343,10 +363,8 @@ class GlucoseWidget(Static):
             return
         if self.show_graph and self.history and len(self.history) >= 2:
             w.update(make_chart(self.history, self.history_times))
-            w.styles.display = "block"
         else:
             w.update("")
-            w.styles.display = "none"
 
 
 class GlucoseApp(App):
@@ -425,6 +443,17 @@ class GlucoseApp(App):
     .big_row {
         align: center middle;
         height: auto;
+    }
+
+    .compact_row {
+        align: center middle;
+        height: 1;
+        display: none;
+    }
+
+    .compact_val {
+        text-style: bold;
+        content-align: center middle;
     }
 
     .trend {
