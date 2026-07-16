@@ -274,8 +274,6 @@ class GlucoseWidget(Static):
         with Vertical(classes="main"):
             with Horizontal(classes="big_row"):
                 yield Static(make_big_text("88"), id="big_value", classes="big_value")
-                yield Static("", id="trend", classes="trend")
-                yield Static("mg/dL", id="unit_val", classes="unit_val")
             with Horizontal(classes="compact_row"):
                 yield Static("", id="compact_val", classes="compact_val")
             yield Static("", id="trend_label", classes="trend_label")
@@ -289,8 +287,6 @@ class GlucoseWidget(Static):
         t = getattr(self.app, "_theme", DEFAULT_THEME)
         self.styles.background = t.get("bg", "#1e1e2e")
         for w in self.query(".trend_label"):
-            w.styles.color = t.get("muted", "#585b70")
-        for w in self.query(".unit_val"):
             w.styles.color = t.get("muted", "#585b70")
 
     def _safe(self, wid):
@@ -319,20 +315,10 @@ class GlucoseWidget(Static):
             w.update(f"{display} {trend_char}  {unit}  {label}")
             w.styles.color = clr
 
-        w = self._safe("trend")
-        if w:
-            w.update(trend_char)
-            w.styles.color = clr
-
-        w = self._safe("unit_val")
-        if w:
-            w.update(unit)
-            w.styles.color = t.get("muted", "#585b70")
-
-        label = TREND_LABEL.get(self.trend, "")
         w = self._safe("trend_label")
         if w:
-            w.update(label)
+            info = f"{display} {trend_char}  {unit}  {label}"
+            w.update(info.lstrip())
             w.styles.color = t.get("muted", "#585b70")
 
     def watch_use_mmol(self, val):
@@ -459,19 +445,6 @@ class GlucoseApp(App):
         content-align: center middle;
     }
 
-    .trend {
-        text-style: bold;
-        content-align: center middle;
-        height: auto;
-        margin-left: 1;
-    }
-
-    .unit_val {
-        content-align: left middle;
-        height: auto;
-        margin-left: 1;
-    }
-
     .big_value {
         text-style: bold;
         content-align: center middle;
@@ -510,6 +483,7 @@ class GlucoseApp(App):
         self._theme = {**DEFAULT_THEME, **(config.get("theme") or {})}
         self.client = None
         self._running = True
+        self._fetch_in_progress = False
 
     def compose(self):
         yield Header(show_clock=False)
@@ -537,6 +511,8 @@ class GlucoseApp(App):
         gw = GlucoseWidget()
         box.mount(gw)
         self._glucose = gw
+        self._fetch_in_progress = True
+        self._set_status("fetching\u2026")
         threading.Thread(target=self._fetch_loop, daemon=True).start()
 
     def _fetch_loop(self):
@@ -554,6 +530,7 @@ class GlucoseApp(App):
         )
         backoff = REFRESH_SECS
         while self._running:
+            self._fetch_in_progress = True
             try:
                 self.client.authenticate()
                 patients = self.client.get_patients()
@@ -577,11 +554,15 @@ class GlucoseApp(App):
                         self.call_from_thread(self._set_status, f"Rate limited, retry in {remaining}s")
                         time.sleep(1)
                     backoff = min(backoff * 2, 600)
+                    self.call_from_thread(self._set_status, "Retrying\u2026")
+                    time.sleep(1)
                     continue
                 else:
                     self.call_from_thread(self._set_status, f"HTTP {code}")
             except Exception as e:
                 self.call_from_thread(self._set_status, str(e)[:80])
+            finally:
+                self._fetch_in_progress = False
 
             for _ in range(REFRESH_SECS):
                 if not self._running:
@@ -622,6 +603,8 @@ class GlucoseApp(App):
             self._glucose.use_mmol = not self._glucose.use_mmol
 
     def action_refresh(self):
+        if self._fetch_in_progress:
+            return
         if hasattr(self, "_glucose"):
             self._glucose.value_mgdl = None
             self._glucose.history = []
