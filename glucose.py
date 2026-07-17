@@ -127,10 +127,19 @@ def make_chart(values, timestamps=None):
     mn, mx = int(raw_mn), int(raw_mx)
     rng = mx - mn if mx != mn else 1
 
+    # Stretch data across available width by interpolating midpoints
+    stretched = []
+    for i in range(n - 1):
+        stretched.append(values[i])
+        mid = (values[i] + values[i + 1]) / 2
+        stretched.append(int(mid))
+    stretched.append(values[-1])
+    n = len(stretched)
+
     def value_row(v):
         return round((mx - int(v)) / rng * (height - 1))
 
-    cols = [(value_row(v), int(v)) for v in values]
+    cols = [(value_row(v), int(v)) for v in stretched]
 
     grid = [[" " for _ in range(n)] for _ in range(height)]
 
@@ -783,7 +792,7 @@ class GlucoseApp(App):
         if hasattr(self, "_glucose"):
             gw = self._glucose
             if not gw.show_graph:
-                self._resize_window(419, 297)
+                self._resize_window(760, 340)
             else:
                 self._resize_window(419, 178)
             gw.show_graph = not gw.show_graph
