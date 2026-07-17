@@ -5,7 +5,6 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from datetime import timezone
 from typing import Optional
 
 import keyring
@@ -19,6 +18,8 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import Static, Header, Footer, Input, Label
 from textual.screen import Screen
+
+from chart_renderer import render_chart
 
 CONFIG_PATH = os.path.expanduser("~/.config/glucose-monitor/config.json")
 
@@ -118,59 +119,6 @@ def make_big_text(text: str) -> str:
     return "\n".join(lines)
 
 
-def make_chart(values, timestamps=None):
-    if not values or len(values) < 2:
-        return ""
-    height = 8
-    n = len(values)
-    raw_mn, raw_mx = min(values), max(values)
-    mn, mx = int(raw_mn), int(raw_mx)
-    rng = mx - mn if mx != mn else 1
-
-    def value_row(v):
-        return round((mx - int(v)) / rng * (height - 1))
-
-    grid = [[" " for _ in range(n)] for _ in range(height)]
-
-    for i in range(n - 1):
-        r = value_row(values[i])
-        nr = value_row(values[i + 1])
-        if nr < r:
-            grid[r][i] = "╱"
-        elif nr > r:
-            grid[r][i] = "╲"
-        else:
-            grid[r][i] = "─"
-
-    r_last = value_row(values[-1])
-    grid[r_last][n - 1] = "•"
-
-    label_width = max(len(str(mx)), len(str(mn)))
-    y_labels = []
-    for r in range(height):
-        v = round(mx - (r / (height - 1)) * rng) if rng > 0 else mx
-        y_labels.append(f"{v}".rjust(label_width))
-
-    lines = []
-    for r in range(height):
-        lines.append(y_labels[r] + " " + "".join(grid[r]))
-
-    if timestamps and len(timestamps) == n:
-        times = [t.astimezone().strftime("%H:%M") for t in timestamps]
-        tick_step = max(1, n // 6)
-        x_buf = " " * (label_width + 1)
-        col = 0
-        for idx in range(0, n, tick_step):
-            label = times[idx]
-            if col <= idx:
-                gap = idx - col
-                x_buf += " " * gap + label
-                col = idx + len(label)
-        lines.append(x_buf)
-
-    return "\n".join(lines)
-
-
 REGION_HELP = "Options: US, EU, EU2, AE, AP, AU, CA, DE, FR, JP, LA, RU (Poland → EU)"
 
 
@@ -256,9 +204,9 @@ class GlucoseWidget(Static):
     value_mmol = reactive(None)
     trend = reactive(None)
     use_mmol = reactive(False)
-    history = reactive(list)
+    history = reactive(None)
     show_graph = reactive(False)
-    history_times = reactive(list)
+    history_times = reactive(None)
 
     def compose(self):
         with Vertical(classes="main"):
@@ -322,7 +270,15 @@ class GlucoseWidget(Static):
             self.watch_value_mgdl(self.value_mgdl)
 
     def watch_history(self, vals):
-        if self.show_graph:
+        if (self.show_graph and vals is not None and
+            self.history_times is not None and
+            len(vals) >= 2 and len(self.history_times) >= 2):
+            self._render_chart()
+
+    def watch_history_times(self, vals):
+        if (self.show_graph and vals is not None and
+            self.history is not None and
+            len(vals) >= 2 and len(self.history) >= 2):
             self._render_chart()
 
     def watch_show_graph(self, val):
@@ -346,8 +302,19 @@ class GlucoseWidget(Static):
         w = self._safe("chart")
         if not w:
             return
-        if self.show_graph and self.history and len(self.history) >= 2:
-            w.update(make_chart(self.history, self.history_times))
+        if (self.show_graph and self.history and self.history_times and
+            len(self.history) >= 2 and len(self.history_times) >= 2):
+            avail = max(w.region.width - 4, 10)
+            text = render_chart(
+                self.history,
+                self.history_times,
+                width=avail,
+                height=8,
+                low_threshold=LOW,
+                high_threshold=HIGH,
+                theme=getattr(self.app, "_theme", None),
+            )
+            w.update(text)
         else:
             w.update("")
 
@@ -448,9 +415,9 @@ class GlucoseApp(App):
 
     .chart {
         color: #f9e2af;
-        content-align: center middle;
+        content-align: left top;
         width: 100%;
-        height: 10;
+        height: auto;
         display: none;
     }
 
