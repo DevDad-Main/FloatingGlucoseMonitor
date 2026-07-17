@@ -151,11 +151,9 @@ Run `./diagnose.sh` to test connectivity with your region.
 
 ## Theming
 
-The app picks up Catppuccin Mocha colours by default. If you use the included `theme-picker.sh` (i3 keybind `$mod+Shift+t`), new theme colours are written to `~/.config/glucose-monitor/config.json`.
+The app picks up Catppuccin Mocha colours by default. You can override individual colours in `config.json` under the `"theme"` key:
 
 Press **`t`** inside the glucose monitor to reload the theme from config without restarting the app.
-
-Alternatively, you can override individual colours in `config.json` under the `"theme"` key:
 
 ```json
 {
@@ -185,22 +183,6 @@ Alternatively, you can override individual colours in `config.json` under the `"
 | `surface`| Input field backgrounds         |
 | `border` | Input field borders             |
 
-## i3wm Keybind
-
-Add the following line to your i3 configuration:
-
-```text
-bindsym $mod+Shift+g exec --no-startup-id /full/path/to/FloatingGlucoseMonitor/toggle.sh
-```
-
-Replace the path with the actual location of the repository.
-
-Reload your i3 configuration after making the change:
-
-```text
-$mod+Shift+r
-```
-
 ## Refresh Behaviour
 
 By default:
@@ -227,6 +209,7 @@ The example above refreshes:
 | File               | Purpose                                                      |
 | ------------------ | ------------------------------------------------------------ |
 | `glucose.py`       | Main Textual application                                     |
+| `chart_renderer.py`| Braille-based glucose history chart renderer                 |
 | `run.sh`           | Activates the virtual environment and starts the application |
 | `toggle.sh`        | Opens or toggles the floating kitty window                   |
 | `diagnose.sh`      | Tests LibreLinkUp API regions and connectivity               |
@@ -264,7 +247,7 @@ Make sure the Libre user has shared their glucose data with the LibreLinkUp acco
 
 Avoid repeatedly pressing the manual refresh key.
 
-> NOTE: The defaults are optimized to not hit rate limits, 
+> The defaults are optimized to avoid rate limits.
 Increasing these values may also help:
 
 ```python
