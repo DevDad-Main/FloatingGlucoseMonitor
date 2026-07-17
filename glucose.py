@@ -45,6 +45,11 @@ HIGH = 180
 REFRESH_SECS = 60  # Current glucose every 1 minute
 GRAPH_REFRESH_SECS = 300  # Graph every 5 minutes
 
+@dataclass
+class _GraphData:
+    history: list
+    times: list
+
 DEFAULT_THEME = {
     "bg": "#1e1e2e",
     "fg": "#cdd6f4",
@@ -205,9 +210,8 @@ class GlucoseWidget(Static):
     value_mmol = reactive(None)
     trend = reactive(None)
     use_mmol = reactive(False)
-    history = reactive(None)
+    graph_data = reactive(None)
     show_graph = reactive(False)
-    history_times = reactive(None)
 
     def compose(self):
         with Vertical(classes="main"):
@@ -270,16 +274,8 @@ class GlucoseWidget(Static):
         if self.value_mgdl is not None:
             self.watch_value_mgdl(self.value_mgdl)
 
-    def watch_history(self, vals):
-        if (self.show_graph and vals is not None and
-            self.history_times is not None and
-            len(vals) >= 2 and len(self.history_times) >= 2):
-            self._render_chart()
-
-    def watch_history_times(self, vals):
-        if (self.show_graph and vals is not None and
-            self.history is not None and
-            len(vals) >= 2 and len(self.history) >= 2):
+    def watch_graph_data(self, data):
+        if self.show_graph and data and len(data.history) >= 2:
             self._render_chart()
 
     def watch_show_graph(self, val):
@@ -303,13 +299,13 @@ class GlucoseWidget(Static):
         w = self._safe("chart")
         if not w:
             return
-        if (self.show_graph and self.history and self.history_times and
-            len(self.history) >= 2 and len(self.history_times) >= 2):
+        gd = self.graph_data
+        if self.show_graph and gd and len(gd.history) >= 2:
             term = shutil.get_terminal_size()
             avail = max(term.columns - 4, 10)
             text = render_chart(
-                self.history,
-                self.history_times,
+                gd.history,
+                gd.times,
                 width=avail,
                 height=8,
                 low_threshold=LOW,
@@ -317,6 +313,8 @@ class GlucoseWidget(Static):
                 theme=getattr(self.app, "_theme", None),
             )
             w.update(text)
+        elif self.show_graph:
+            w.update("waiting for data…")
         else:
             w.update("")
 
@@ -420,6 +418,7 @@ class GlucoseApp(App):
         content-align: left top;
         width: 100%;
         height: auto;
+        min-height: 11;
         display: none;
     }
 
@@ -693,9 +692,10 @@ class GlucoseApp(App):
     def _update_graph(self, graph_data):
         gw = self._glucose
         recent = graph_data[-40:]
-
-        gw.history = [reading.value_in_mg_per_dl for reading in recent]
-        gw.history_times = [reading.timestamp for reading in recent]
+        gw.graph_data = _GraphData(
+            history=[reading.value_in_mg_per_dl for reading in recent],
+            times=[reading.timestamp for reading in recent],
+        )
 
     def _set_status(self, msg):
         if msg and hasattr(self, "_glucose"):
@@ -771,7 +771,7 @@ class GlucoseApp(App):
             return
         if hasattr(self, "_glucose"):
             self._glucose.value_mgdl = None
-            self._glucose.history = []
+            self._glucose.graph_data = None
         if self._running:
             threading.Thread(target=self._fetch_loop, daemon=True).start()
 
