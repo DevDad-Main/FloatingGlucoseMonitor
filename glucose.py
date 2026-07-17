@@ -127,45 +127,27 @@ def make_chart(values, timestamps=None):
     mn, mx = int(raw_mn), int(raw_mx)
     rng = mx - mn if mx != mn else 1
 
-    # Stretch data: insert interpolated midpoint between each pair
-    stretched_vals = []
-    stretched_ts = []
-    for i in range(n - 1):
-        stretched_vals.append(values[i])
-        stretched_vals.append((values[i] + values[i + 1]) // 2)
-        if timestamps:
-            ta = timestamps[i].timestamp()
-            tb = timestamps[i + 1].timestamp()
-            mid_ts = datetime.fromtimestamp((ta + tb) / 2, tz=timezone.utc)
-            stretched_ts.append(timestamps[i])
-            stretched_ts.append(mid_ts)
-    stretched_vals.append(values[-1])
-    if timestamps:
-        stretched_ts.append(timestamps[-1])
-
-    n = len(stretched_vals)
-
     def value_row(v):
         return round((mx - int(v)) / rng * (height - 1))
 
-    grid = [[" " for _ in range(n)] for _ in range(height)]
+    # Build chart: each data point gets 2 columns — dot then connector
+    cols = 2 * n - 1
+    grid = [[" " for _ in range(cols)] for _ in range(height)]
+
+    for i in range(n):
+        r = value_row(values[i])
+        grid[r][2 * i] = "•"
 
     for i in range(n - 1):
-        r, v = value_row(stretched_vals[i]), stretched_vals[i]
-        nr, nv = value_row(stretched_vals[i + 1]), stretched_vals[i + 1]
+        r = value_row(values[i])
+        nr = value_row(values[i + 1])
+        col = 2 * i + 1
         if nr < r:
-            grid[r][i] = "╱"
+            grid[r][col] = "╱"
         elif nr > r:
-            grid[r][i] = "╲"
+            grid[r][col] = "╲"
         else:
-            grid[r][i] = "─"
-
-    # Mark original data points with •
-    orig_idx = 0
-    for i in range(n):
-        if i % 2 == 0:  # every even column = original point
-            r, _ = value_row(stretched_vals[i]), stretched_vals[i]
-            grid[r][i] = "•"
+            grid[r][col] = "─"
 
     label_width = max(len(str(mx)), len(str(mn)))
     y_labels = []
@@ -177,26 +159,28 @@ def make_chart(values, timestamps=None):
     for r in range(height):
         lines.append(y_labels[r] + " " + "".join(grid[r]))
 
-    if stretched_ts and len(stretched_ts) == n:
+    if timestamps and len(timestamps) == n:
         times = []
-        for t in stretched_ts:
+        for t in timestamps:
             if t.tzinfo is None:
                 t = t.replace(tzinfo=timezone.utc)
             times.append(t.astimezone().strftime("%H:%M"))
 
         tick_cols = []
-        step = max(1, n // 5)
-        for i in range(0, n, step):
+        step = max(1, cols // 6)
+        for i in range(0, cols, step):
             tick_cols.append(i)
 
         x_line = " " * (label_width + 1)
         col = 0
         for i in tick_cols:
-            label = times[i]
-            if col <= i:
-                gap = i - col
-                x_line += " " * gap + label
-                col = i + len(label)
+            idx = i // 2
+            if idx < len(times):
+                label = times[idx]
+                if col <= i:
+                    gap = i - col
+                    x_line += " " * gap + label
+                    col = i + len(label)
         lines.append(x_line)
 
     return "\n".join(lines)
