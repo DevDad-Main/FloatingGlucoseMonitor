@@ -120,24 +120,41 @@ def make_big_text(text: str) -> str:
 def make_chart(values, timestamps=None):
     if not values or len(values) < 2:
         return ""
+    height = 4
     n = len(values)
     raw_mn, raw_mx = min(values), max(values)
     mn, mx = int(raw_mn), int(raw_mx)
     rng = mx - mn if mx != mn else 1
 
-    BLOCKS = [" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+    def value_row(v):
+        return round((mx - int(v)) / rng * (height - 1))
 
-    spark = []
-    for v in values:
-        level = round((int(v) - mn) / rng * 8)
-        level = max(0, min(8, level))
-        spark.append(BLOCKS[level])
+    cols = [(value_row(v), int(v)) for v in values]
+
+    grid = [[" " for _ in range(n)] for _ in range(height)]
+
+    for i in range(n - 1):
+        r, _ = cols[i]
+        nr, _ = cols[i + 1]
+        if nr < r:
+            grid[r][i] = "╱"
+        elif nr > r:
+            grid[r][i] = "╲"
+        else:
+            grid[r][i] = "─"
+
+    grid[cols[0][0]][0] = "·"
+    grid[cols[-1][0]][n - 1] = "·"
 
     label_width = max(len(str(mx)), len(str(mn)))
-    max_label = f"{mx}".rjust(label_width)
-    min_label = f"{mn}"
+    y_labels = []
+    for r in range(height):
+        v = round(mx - (r / (height - 1)) * rng) if rng > 0 else mx
+        y_labels.append(f"{v}".rjust(label_width))
 
-    lines = [max_label + " " + "".join(spark) + " " + min_label]
+    lines = []
+    for r in range(height):
+        lines.append(y_labels[r] + " " + "".join(grid[r]))
 
     if timestamps and len(timestamps) == n:
         times = []
