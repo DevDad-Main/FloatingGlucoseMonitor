@@ -168,33 +168,27 @@ def render_chart(
     x_label_line = ""
     if timestamps and len(timestamps) == n:
         times = [t.astimezone().strftime("%H:%M") for t in timestamps]
-        label_positions = [(0, times[0])]
-        if n > 1:
-            label_positions.append((n - 1, times[-1]))
-        if n > 2:
-            step = max(1, n // max(1, width // 7))
-            for i in range(step, n - 1, step):
-                label_positions.append((i, times[i]))
-        label_positions.sort(key=lambda x: x[0])
-        filtered = [label_positions[0]]
-        min_gap = 5
-        for i in range(1, len(label_positions)):
-            prev_idx = filtered[-1][0]
-            cur_idx = label_positions[i][0]
-            prev_col = round(prev_idx / max(n - 1, 1) * width)
-            cur_col = round(cur_idx / max(n - 1, 1) * width)
-            if cur_col - prev_col >= min_gap:
-                filtered.append(label_positions[i])
+
         indent = " " * (label_width + 1)
         x_buf = indent
-        last_col = 0
-        for idx, label in filtered:
-            col = round(idx / max(n - 1, 1) * width)
-            gap = col - last_col
-            if gap < 0:
-                gap = 0
-            x_buf += " " * gap + label
-            last_col = col + len(label)
+        last_end = 0
+
+        x_buf += times[0]
+        last_end = len(times[0])
+
+        for i in range(1, n - 1):
+            col = round(i / max(n - 1, 1) * width)
+            lw = len(times[i])
+            gap = col - last_end
+            if gap >= 1:
+                x_buf += " " * gap + times[i]
+                last_end = col + lw
+
+        last_col = round((n - 1) / max(n - 1, 1) * width)
+        gap = last_col - last_end
+        if gap >= 0:
+            x_buf += " " * gap + times[-1]
+
         x_label_line = x_buf
 
     lines = []

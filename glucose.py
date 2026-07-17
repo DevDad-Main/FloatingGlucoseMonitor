@@ -298,7 +298,7 @@ class GlucoseWidget(Static):
             return
         if self.show_graph and self.graph_data and len(self.graph_data.history) >= 2:
             term = shutil.get_terminal_size()
-            avail = max(term.columns - 4, 10)
+            avail = max(term.columns - 5, 10)  # 1 extra col margin for right edge
             text = render_chart(
                 self.graph_data.history,
                 self.graph_data.times,
