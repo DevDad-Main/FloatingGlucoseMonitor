@@ -142,10 +142,11 @@ def make_chart(values, timestamps=None):
         r = value_row(values[i])
         nr = value_row(values[i + 1])
         col = 2 * i + 1
+        mid = (r + nr) // 2
         if nr < r:
-            grid[r][col] = "╱"
+            grid[mid][col] = "╱"
         elif nr > r:
-            grid[r][col] = "╲"
+            grid[mid][col] = "╲"
         else:
             grid[r][col] = "─"
 
