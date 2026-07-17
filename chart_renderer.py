@@ -106,15 +106,12 @@ def render_chart(
         for px, py in _bresenham(x0, y0, x1, y1):
             trace.add((px, py))
 
-    guide = set()
+    # Determine which braille rows contain low/high thresholds
+    guide_rows = set()
     for threshold in (low_threshold, high_threshold):
         sy = value_to_sub_y(threshold)
         sy = max(0, min(sub_rows - 1, sy))
-        for bc in range(0, width, 4):
-            for sc in (0, 1):
-                sx = bc * 2 + sc
-                if (sx, sy) not in trace:
-                    guide.add((sx, sy))
+        guide_rows.add(sy // 4)
 
     braille_rows = []
     for row in range(height):
@@ -123,16 +120,12 @@ def render_chart(
         for col in range(width):
             dot_bits = 0
             has_trace = False
-            has_guide = False
             for sc, sr, mask in _BRAILLE_DOTS:
                 sx = col * 2 + sc
                 sy = row * 4 + sr
                 if (sx, sy) in trace:
                     dot_bits |= mask
                     has_trace = True
-                elif (sx, sy) in guide:
-                    dot_bits |= mask
-                    has_guide = True
 
             if dot_bits:
                 ch = _braille_char(dot_bits)
@@ -149,8 +142,6 @@ def render_chart(
                     style = Style(color=high_color)
                 else:
                     style = Style(color=normal_color)
-            elif has_guide:
-                style = Style(color=muted_color)
             else:
                 style = Style(color=muted_color)
 
@@ -195,7 +186,10 @@ def render_chart(
     for r in range(height):
         line = Text()
         line.append(y_labels[r], style=Style(color=muted_color))
-        line.append(" ")
+        if r in guide_rows:
+            line.append("│", style=Style(color=muted_color))
+        else:
+            line.append(" ")
         cells, styles = braille_rows[r]
         for ch, st in zip(cells, styles):
             line.append(ch, style=st)
