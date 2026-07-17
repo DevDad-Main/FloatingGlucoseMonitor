@@ -5,8 +5,11 @@
 </p>
 
 <p align="center">
-  <img src="glucose.jpg" alt="Floating Glucose Monitor showing mg/dL" width="48%">
-  <img src="glucose-mmol.jpg" alt="Floating Glucose Monitor showing mmol/L" width="48%">
+  <img src="glucose.jpg" alt="Floating Glucose Monitor showing mg/dL" width="90%">
+</p>
+
+<p align="center">
+  <img src="glucose-mmol.jpg" alt="Floating Glucose Monitor showing mmol/L" width="90%">
 </p>
 
 <p align="center">
@@ -48,69 +51,72 @@ It is designed primarily for Linux desktops running i3wm and uses:
 
 ## Requirements
 
-* Python 3.10 or newer
-* A LibreLinkUp account
-* A FreeStyle Libre user sharing data through LibreLinkUp
-* Linux
-* [i3wm](https://i3wm.org/)
-* [kitty](https://sw.kovidgoyal.net/kitty/)
-* A supported system keyring
+* **Python 3.10+** — tested on 3.11 and 3.12
+* **A LibreLinkUp account** — [create one free](https://www.libreview.com/) and have a FreeStyle Libre user share their data with it
+* **Linux** — developed and tested on Arch Linux; should work on any distro
+* **(Optional) i3wm** — for the floating-window toggle; adaptable to other WMs
+* **(Optional) kitty** — the toggle script uses kitty; easy to swap out
+* **A system keyring backend** — `gnome-keyring`, `kwallet`, or `secret-service` (typically already present on a desktop Linux install)
 
 ## Installation
 
-Clone the repository:
+### 1. Clone and set up
 
 ```bash
 git clone https://github.com/DevDad-Main/FloatingGlucoseMonitor.git
 cd FloatingGlucoseMonitor
-```
-
-Create and activate a virtual environment:
-
-```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-Install the required packages:
-
-```bash
 pip install textual pylibrelinkup keyring requests
-```
-
-Make the scripts executable:
-
-```bash
 chmod +x run.sh toggle.sh diagnose.sh
 ```
 
-## Usage
-
-Launch or toggle the floating monitor:
-
-```bash
-./toggle.sh
-```
-
-You can also launch the application directly:
+### 2. First launch
 
 ```bash
 ./run.sh
 ```
 
-On the first launch, enter:
-
-* Your LibreLinkUp email address
+On first launch you'll be prompted to enter:
+* Your LibreLinkUp email
 * Your LibreLinkUp password
-* Your LibreLinkUp region
+* Your API region (see [Regions](#regions) below)
 
-For users in Poland, select:
+Your password is stored in the system keyring, never in a config file.
+
+### 3. Floating-window toggle (i3wm)
+
+For the `$mod+Shift+g` toggle, add to your i3 config:
 
 ```text
-EU
+bindsym $mod+Shift+g exec --no-startup-id /path/to/FloatingGlucoseMonitor/toggle.sh
 ```
 
-Your password is stored using the system keyring rather than being written directly to the configuration file.
+Then reload i3: `$mod+Shift+r`.
+
+Add a `for_window` rule to size it as a compact widget:
+
+```text
+for_window [instance="glucose-monitor"] floating enable, border none, resize set 419 178, move position 1650 80
+```
+
+Adjust the `move position` coordinates for your monitor layout.
+
+### Regions
+
+| Region | API URL |
+| ------ | ------- |
+| US     | `api-us.libreview.io` |
+| EU     | `api-eu.libreview.io` |
+| AU     | `api-au.libreview.io` |
+| AP     | `api-ap.libreview.io` |
+| CA     | `api-ca.libreview.io` |
+| DE     | `api-de.libreview.io` |
+| FR     | `api-fr.libreview.io` |
+| JP     | `api-jp.libreview.io` |
+| LA     | `api-la.libreview.io` |
+
+Run `./diagnose.sh` to test connectivity with your region.
 
 ## Controls
 
@@ -119,8 +125,45 @@ Your password is stored using the system keyring rather than being written direc
 | `u` | Toggle between mg/dL and mmol/L  |
 | `g` | Toggle the glucose history graph |
 | `r` | Refresh the glucose data         |
+| `t` | Reload theme from config         |
 | `l` | Open the login screen            |
 | `q` | Quit                             |
+
+## Theming
+
+The app picks up Catppuccin Mocha colours by default. If you use the included `theme-picker.sh` (i3 keybind `$mod+Shift+t`), new theme colours are written to `~/.config/glucose-monitor/config.json`.
+
+Press **`t`** inside the glucose monitor to reload the theme from config without restarting the app.
+
+Alternatively, you can override individual colours in `config.json` under the `"theme"` key:
+
+```json
+{
+  "theme": {
+    "bg": "#1e1e2e",
+    "fg": "#cdd6f4",
+    "accent": "#f9e2af",
+    "low": "#f38ba8",
+    "high": "#fab387",
+    "normal": "#a6e3a1",
+    "muted": "#585b70",
+    "surface": "#313244",
+    "border": "#585b70"
+  }
+}
+```
+
+| Key      | Applies to                      |
+| -------- | ------------------------------- |
+| `bg`     | Background colour               |
+| `fg`     | General text colour             |
+| `accent` | Screen border, chart lines      |
+| `low`    | Low glucose value (below 70)    |
+| `high`   | High glucose value (above 180)  |
+| `normal` | In-range glucose value          |
+| `muted`  | Secondary text, status messages |
+| `surface`| Input field backgrounds         |
+| `border` | Input field borders             |
 
 ## i3wm Keybind
 

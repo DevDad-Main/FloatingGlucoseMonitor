@@ -288,6 +288,8 @@ class GlucoseWidget(Static):
         self.styles.background = t.get("bg", "#1e1e2e")
         for w in self.query(".trend_label"):
             w.styles.color = t.get("muted", "#585b70")
+        for w in self.query(".chart"):
+            w.styles.color = t.get("accent", "#f9e2af")
 
     def _safe(self, wid):
         try:
@@ -478,6 +480,7 @@ class GlucoseApp(App):
         ("r", "refresh", "Refresh"),
         ("g", "toggle_graph", "Graph"),
         ("l", "login", "Login"),
+        ("t", "reload_theme", "Theme"),
         ("q", "quit", "Quit"),
     ]
 
@@ -740,6 +743,20 @@ class GlucoseApp(App):
                 w.update(msg)
             except Exception:
                 pass
+
+    def action_reload_theme(self):
+        self.config = load_config()
+        self._theme = {**DEFAULT_THEME, **(self.config.get("theme") or {})}
+
+        self.screen.styles.background = self._theme.get("bg", "#1e1e2e")
+        self.screen.styles.border = ("solid", self._theme.get("accent", "#f9e2af"))
+
+        if hasattr(self, "_glucose"):
+            self._glucose._apply_theme()
+            if self._glucose.value_mgdl is not None:
+                self._glucose.watch_value_mgdl(self._glucose.value_mgdl)
+
+        self._set_status("Theme reloaded")
 
     def action_login(self):
         self._running = False
