@@ -106,15 +106,6 @@ def render_chart(
         for px, py in _bresenham(x0, y0, x1, y1):
             trace.add((px, py))
 
-    guide_rows = set()
-    for threshold in (low_threshold, high_threshold):
-        sy = value_to_sub_y(threshold)
-        sy = max(0, min(sub_rows - 1, sy))
-        gr = sy // 4
-        if gr % 2 != 0:
-            gr = max(0, gr - 1)
-        guide_rows.add(gr)
-
     braille_rows = []
     for row in range(height):
         cells = []
@@ -154,12 +145,37 @@ def render_chart(
         braille_rows.append((cells, cell_styles))
 
     label_width = 4 if use_mmol else 3
+
+    y_label_row_map = {}
+    for val in y_labels_display:
+        if use_mmol:
+            val_mgdl = val * 18.0182
+        else:
+            val_mgdl = val
+        sy = value_to_sub_y(val_mgdl)
+        sy = max(0, min(sub_rows - 1, sy))
+        y_label_row_map[sy // 4] = val
+
+    label_rows = sorted(y_label_row_map.keys())
+
+    guide_rows = set()
+    for threshold in (low_threshold, high_threshold):
+        sy = value_to_sub_y(threshold)
+        sy = max(0, min(sub_rows - 1, sy))
+        gr = sy // 4
+        if label_rows:
+            nearest = min(label_rows, key=lambda x: abs(x - gr))
+            guide_rows.add(nearest)
+
     y_labels = []
     for r in range(height):
-        if r % 2 == 0:
-            idx = r // 2
-            label = y_labels_display[idx] if idx < len(y_labels_display) else ""
-            y_labels.append(f"{label:>{label_width}}")
+        if r in y_label_row_map:
+            label = y_label_row_map[r]
+            if use_mmol:
+                label_str = f"{label:.1f}"
+            else:
+                label_str = f"{label}"
+            y_labels.append(f"{label_str:>{label_width}}")
         else:
             y_labels.append(" " * label_width)
 
@@ -172,6 +188,9 @@ def render_chart(
             if h not in seen:
                 seen.add(h)
                 unique_labels.append(h)
+
+        if len(unique_labels) > 2:
+            unique_labels.pop(0)
 
         indent = " " * (label_width + 1)
         x_buf = indent
