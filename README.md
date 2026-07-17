@@ -5,6 +5,14 @@
 </p>
 
 <p align="center">
+  <img src="glucose-graph-mgdl.png" alt="Graph — mg/dL mode" width="90%">
+</p>
+
+<p align="center">
+  <img src="glucose-graph-mmol.png" alt="Graph — mmol/L mode" width="90%">
+</p>
+
+<p align="center">
   <img src="glucose.jpg" alt="Catppuccin Mocha — mg/dL" width="90%">
 </p>
 
@@ -22,14 +30,6 @@
 
 <p align="center">
   <img src="gluocse-monochrome.png" alt="Monochrome theme" width="90%">
-</p>
-
-<p align="center">
-  <img src="glucose-graph-mgdl.png" alt="Graph — mg/dL mode" width="90%">
-</p>
-
-<p align="center">
-  <img src="glucose-graph-mmol.png" alt="Graph — mmol/L mode" width="90%">
 </p>
 
 <p align="center">
