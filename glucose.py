@@ -5,7 +5,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Optional
 
 import keyring
