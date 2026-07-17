@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import os
-import shutil
 import subprocess
 import threading
 import time
@@ -297,8 +296,10 @@ class GlucoseWidget(Static):
         if not w:
             return
         if self.show_graph and self.graph_data and len(self.graph_data.history) >= 2:
-            term = shutil.get_terminal_size()
-            avail = max(term.columns - 5, 10)  # 1 extra col margin for right edge
+            screen_width = getattr(self.app.screen.size, "width", 0)
+            if screen_width <= 10:
+                screen_width = getattr(self.app.size, "width", 80)
+            avail = max(screen_width - 5, 10)
             text = render_chart(
                 self.graph_data.history,
                 self.graph_data.times,

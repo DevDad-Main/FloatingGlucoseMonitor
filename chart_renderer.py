@@ -186,7 +186,7 @@ def render_chart(
 
         last_col = round((n - 1) / max(n - 1, 1) * width)
         gap = last_col - last_end
-        if gap >= 0:
+        if gap >= 1:
             x_buf += " " * gap + times[-1]
 
         x_label_line = x_buf
