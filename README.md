@@ -25,6 +25,14 @@
 </p>
 
 <p align="center">
+  <img src="glucose-graph-mgdl.png" alt="Graph — mg/dL mode" width="90%">
+</p>
+
+<p align="center">
+  <img src="glucose-graph-mmol.png" alt="Graph — mmol/L mode" width="90%">
+</p>
+
+<p align="center">
   <strong>Live readings · Trend indicators · Glucose history · mg/dL and mmol/L</strong>
 </p>
 
@@ -227,6 +235,8 @@ The example above refreshes:
 | `glucose-gruvbox.png` | Screenshot — Gruvbox theme                                |
 | `glucose-tokyo.png` | Screenshot — Tokyo Night theme                              |
 | `gluocse-monochrome.png` | Screenshot — Monochrome theme                          |
+| `glucose-graph-mgdl.png` | Screenshot — Graph in mg/dL mode                     |
+| `glucose-graph-mmol.png` | Screenshot — Graph in mmol/L mode                    |
 
 ## Configuration
 
