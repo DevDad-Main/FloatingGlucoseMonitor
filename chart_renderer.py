@@ -178,8 +178,9 @@ def render_chart(
         last_end = 0
 
         for i, label in enumerate(unique_labels):
-            col = round(i / max(len(unique_labels) - 1, 1) * width)
             lw = len(label)
+            avail_w = width - lw
+            col = round(i / max(len(unique_labels) - 1, 1) * max(avail_w, 0))
             gap = col - last_end
             if i == 0 or gap >= 1:
                 x_buf += " " * max(0, gap) + label
