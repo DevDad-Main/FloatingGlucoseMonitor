@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -304,15 +305,12 @@ class GlucoseWidget(Static):
             return
         if (self.show_graph and self.history and self.history_times and
             len(self.history) >= 2 and len(self.history_times) >= 2):
-            region_width = getattr(w.region, "width", 0)
-            if region_width > 20:
-                avail = region_width - 4
-            else:
-                avail = getattr(self.app.size, "width", 80) - 4
+            term = shutil.get_terminal_size()
+            avail = max(term.columns - 4, 10)
             text = render_chart(
                 self.history,
                 self.history_times,
-                width=max(avail, 10),
+                width=avail,
                 height=8,
                 low_threshold=LOW,
                 high_threshold=HIGH,
