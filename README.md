@@ -5,11 +5,23 @@
 </p>
 
 <p align="center">
-  <img src="glucose.jpg" alt="Floating Glucose Monitor showing mg/dL" width="90%">
+  <img src="glucose.jpg" alt="Catppuccin Mocha — mg/dL" width="90%">
 </p>
 
 <p align="center">
-  <img src="glucose-mmol.jpg" alt="Floating Glucose Monitor showing mmol/L" width="90%">
+  <img src="glucose-mmol.jpg" alt="Catppuccin Mocha — mmol/L" width="90%">
+</p>
+
+<p align="center">
+  <img src="glucose-gruvbox.png" alt="Gruvbox theme" width="90%">
+</p>
+
+<p align="center">
+  <img src="glucose-tokyo.png" alt="Tokyo Night theme" width="90%">
+</p>
+
+<p align="center">
+  <img src="gluocse-monochrome.png" alt="Monochrome theme" width="90%">
 </p>
 
 <p align="center">
@@ -210,8 +222,11 @@ The example above refreshes:
 | `run.sh`           | Activates the virtual environment and starts the application |
 | `toggle.sh`        | Opens or toggles the floating kitty window                   |
 | `diagnose.sh`      | Tests LibreLinkUp API regions and connectivity               |
-| `glucose.jpg`      | Screenshot showing the mg/dL interface                       |
-| `glucose-mmol.jpg` | Screenshot showing the mmol/L interface                      |
+| `glucose.jpg`      | Screenshot — Catppuccin Mocha mg/dL                         |
+| `glucose-mmol.jpg` | Screenshot — Catppuccin Mocha mmol/L                        |
+| `glucose-gruvbox.png` | Screenshot — Gruvbox theme                                |
+| `glucose-tokyo.png` | Screenshot — Tokyo Night theme                              |
+| `gluocse-monochrome.png` | Screenshot — Monochrome theme                          |
 
 ## Configuration
 
