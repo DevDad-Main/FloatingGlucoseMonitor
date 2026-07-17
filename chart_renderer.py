@@ -165,24 +165,25 @@ def render_chart(
 
     x_label_line = ""
     if timestamps and len(timestamps) == n:
-        times = [t.astimezone().strftime("%H:00") for t in timestamps]
+        seen = set()
+        unique_labels = []
+        for t in timestamps:
+            h = t.astimezone().strftime("%H:00")
+            if h not in seen:
+                seen.add(h)
+                unique_labels.append(h)
 
         indent = " " * (label_width + 1)
         x_buf = indent
         last_end = 0
-        last_label = None
 
-        for i in range(n):
-            label = times[i]
-            if label == last_label and i != 0:
-                continue
-            col = round(i / max(n - 1, 1) * width)
+        for i, label in enumerate(unique_labels):
+            col = round(i / max(len(unique_labels) - 1, 1) * width)
             lw = len(label)
             gap = col - last_end
             if i == 0 or gap >= 1:
-                x_buf += " " * max(gap, 0) + label
+                x_buf += " " * max(0, gap) + label
                 last_end = col + lw
-                last_label = label
 
         x_label_line = x_buf
 
