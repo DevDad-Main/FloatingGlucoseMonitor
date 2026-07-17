@@ -110,7 +110,10 @@ def render_chart(
     for threshold in (low_threshold, high_threshold):
         sy = value_to_sub_y(threshold)
         sy = max(0, min(sub_rows - 1, sy))
-        guide_rows.add(sy // 4)
+        gr = sy // 4
+        if gr % 2 != 0:
+            gr = max(0, gr - 1)
+        guide_rows.add(gr)
 
     braille_rows = []
     for row in range(height):
@@ -153,12 +156,16 @@ def render_chart(
     label_width = 4 if use_mmol else 3
     y_labels = []
     for r in range(height):
-        label = y_labels_display[r] if r < len(y_labels_display) else ""
-        y_labels.append(f"{label:>{label_width}}")
+        if r % 2 == 0:
+            idx = r // 2
+            label = y_labels_display[idx] if idx < len(y_labels_display) else ""
+            y_labels.append(f"{label:>{label_width}}")
+        else:
+            y_labels.append(" " * label_width)
 
     x_label_line = ""
     if timestamps and len(timestamps) == n:
-        times = [t.astimezone().strftime("%H:%M") for t in timestamps]
+        times = [t.astimezone().strftime("%H:00") for t in timestamps]
 
         indent = " " * (label_width + 1)
         x_buf = indent

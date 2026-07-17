@@ -272,6 +272,7 @@ class GlucoseWidget(Static):
     def watch_use_mmol(self, val):
         if self.value_mgdl is not None:
             self.watch_value_mgdl(self.value_mgdl)
+        self._render_chart()
 
     def watch_graph_data(self, data):
         if self.show_graph and data and len(data.history) >= 2:
@@ -309,7 +310,7 @@ class GlucoseWidget(Static):
                 self.graph_data.history,
                 self.graph_data.times,
                 width=avail,
-                height=7,
+                height=13,
                 low_threshold=LOW,
                 high_threshold=HIGH,
                 use_mmol=self.use_mmol,
@@ -418,7 +419,7 @@ class GlucoseApp(App):
         color: #f9e2af;
         content-align: left top;
         width: 100%;
-        height: 9;
+        height: 14;
         display: none;
     }
 
