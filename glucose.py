@@ -126,25 +126,18 @@ def make_chart(values, timestamps=None):
     mn, mx = int(raw_mn), int(raw_mx)
     rng = mx - mn if mx != mn else 1
 
-    def value_row(v):
-        return round((mx - int(v)) / rng * (height - 1))
-
-    cols = [(value_row(v), int(v)) for v in values]
+    levels = [max(0, min(7, round((int(v) - mn) / rng * 7))) for v in values]
 
     grid = [[" " for _ in range(n)] for _ in range(height)]
 
-    for i in range(n - 1):
-        r, _ = cols[i]
-        nr, _ = cols[i + 1]
-        if nr < r:
-            grid[r][i] = "╱"
-        elif nr > r:
-            grid[r][i] = "╲"
-        else:
-            grid[r][i] = "─"
-
-    grid[cols[0][0]][0] = "·"
-    grid[cols[-1][0]][n - 1] = "·"
+    for col, lvl in enumerate(levels):
+        filled = lvl + 1
+        full_rows = filled // 2
+        has_partial = filled % 2
+        for row in range(full_rows):
+            grid[row][col] = "█"
+        if has_partial and full_rows < height:
+            grid[full_rows][col] = "▄"
 
     label_width = max(len(str(mx)), len(str(mn)))
     y_labels = []
