@@ -291,7 +291,7 @@ class GlucoseWidget(Static):
             compact_row.styles.display = "block"
             trend_label.styles.display = "none"
             chart.styles.display = "block"
-            self._render_chart()
+            self.set_timer(0.0, self._render_chart)
         else:
             big_row.styles.display = "block"
             compact_row.styles.display = "none"
@@ -304,11 +304,15 @@ class GlucoseWidget(Static):
             return
         if (self.show_graph and self.history and self.history_times and
             len(self.history) >= 2 and len(self.history_times) >= 2):
-            avail = max(w.region.width - 4, 10)
+            region_width = getattr(w.region, "width", 0)
+            if region_width > 20:
+                avail = region_width - 4
+            else:
+                avail = getattr(self.app.size, "width", 80) - 4
             text = render_chart(
                 self.history,
                 self.history_times,
-                width=avail,
+                width=max(avail, 10),
                 height=8,
                 low_threshold=LOW,
                 high_threshold=HIGH,
