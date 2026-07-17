@@ -757,7 +757,7 @@ class GlucoseApp(App):
         mtime = self._get_config_mtime()
         if mtime and mtime != self._config_mtime:
             self._config_mtime = mtime
-            self._apply_theme_now()
+            self.call_from_thread(self._apply_theme_now)
 
     def _apply_theme_now(self):
         self.config = load_config()
@@ -773,7 +773,6 @@ class GlucoseApp(App):
 
     def action_reload_theme(self):
         self._apply_theme_now()
-        self._set_status("Theme reloaded")
 
     def action_login(self):
         self._running = False
