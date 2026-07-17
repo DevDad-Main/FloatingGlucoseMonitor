@@ -282,41 +282,39 @@ class GlucoseWidget(Static):
         big_row = self.query_one(".big_row")
         compact_row = self.query_one(".compact_row")
         trend_label = self.query_one("#trend_label")
-        chart = self.query_one("#chart")
         if val:
             big_row.styles.display = "none"
             compact_row.styles.display = "block"
             trend_label.styles.display = "none"
-            chart.styles.display = "block"
-            self.set_timer(0.0, self._render_chart)
         else:
             big_row.styles.display = "block"
             compact_row.styles.display = "none"
             trend_label.styles.display = "block"
-            chart.styles.display = "none"
+        self._render_chart()
 
     def _render_chart(self):
         w = self._safe("chart")
         if not w:
             return
-        gd = self.graph_data
-        if self.show_graph and gd and len(gd.history) >= 2:
+        if self.show_graph and self.graph_data and len(self.graph_data.history) >= 2:
             term = shutil.get_terminal_size()
             avail = max(term.columns - 4, 10)
             text = render_chart(
-                gd.history,
-                gd.times,
+                self.graph_data.history,
+                self.graph_data.times,
                 width=avail,
                 height=8,
                 low_threshold=LOW,
                 high_threshold=HIGH,
                 theme=getattr(self.app, "_theme", None),
             )
+            w.styles.display = "block"
             w.update(text)
         elif self.show_graph:
+            w.styles.display = "block"
             w.update("waiting for data…")
-        else:
-            w.update("")
+        elif not self.show_graph:
+            w.styles.display = "none"
 
 
 class GlucoseApp(App):
