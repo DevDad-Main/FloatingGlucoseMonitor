@@ -20,18 +20,6 @@ def _braille_char(dot_bits):
     return chr(0x2800 | (dot_bits & 0xFF))
 
 
-def _nice_limits(mn, mx, padding=5, min_range=60, round_to=10):
-    lo = float(mn) - padding
-    hi = float(mx) + padding
-    if hi - lo < min_range:
-        mid = (hi + lo) / 2.0
-        lo = mid - min_range / 2.0
-        hi = mid + min_range / 2.0
-    lo = math.floor(lo / round_to) * round_to
-    hi = math.ceil(hi / round_to) * round_to
-    return int(lo), int(hi)
-
-
 def _bresenham(x0, y0, x1, y1):
     dx = abs(x1 - x0)
     dy = abs(y1 - y0)
@@ -84,7 +72,7 @@ def render_chart(
     muted_color = theme.get("muted", "#585b70")
     accent_color = theme.get("accent", "#f9e2af")
 
-    y_lo, y_hi = _nice_limits(min(values), max(values))
+    y_lo, y_hi = 0, 350
     y_range = y_hi - y_lo
     sub_rows = height * 4
     sub_cols = width * 2
@@ -150,11 +138,11 @@ def render_chart(
         braille_rows.append((cells, cell_styles))
 
     label_width = max(len(str(y_hi)), len(str(y_lo)), 3)
+    librelink_labels = [350, 300, 250, 200, 150, 100, 50, 0]
     y_labels = []
     for r in range(height):
-        val = y_hi - r / (height - 1) * y_range
-        label = f"{val:>{label_width}.0f}"
-        y_labels.append(label)
+        label = librelink_labels[r] if r < len(librelink_labels) else 0
+        y_labels.append(f"{label:>{label_width}}")
 
     x_label_line = ""
     if timestamps and len(timestamps) == n:
