@@ -742,7 +742,7 @@ class GlucoseApp(App):
         if hasattr(self, "_glucose"):
             gw = self._glucose
             if not gw.show_graph:
-                self._resize_window(760, 340)
+                self._resize_window(760, 400)
                 self.set_timer(0.15, self._show_graph)
             else:
                 self._resize_window(419, 178)
