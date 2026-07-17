@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import subprocess
 import threading
 import time
 from dataclasses import dataclass
@@ -120,7 +121,7 @@ def make_big_text(text: str) -> str:
 def make_chart(values, timestamps=None):
     if not values or len(values) < 2:
         return ""
-    height = 4
+    height = 8
     n = len(values)
     raw_mn, raw_mx = min(values), max(values)
     mn, mx = int(raw_mn), int(raw_mx)
@@ -460,7 +461,7 @@ class GlucoseApp(App):
         color: #f9e2af;
         content-align: center middle;
         width: 100%;
-        height: 5;
+        height: 10;
         display: none;
     }
 
@@ -780,7 +781,23 @@ class GlucoseApp(App):
 
     def action_toggle_graph(self):
         if hasattr(self, "_glucose"):
-            self._glucose.show_graph = not self._glucose.show_graph
+            gw = self._glucose
+            if not gw.show_graph:
+                self._resize_window(419, 297)
+            else:
+                self._resize_window(419, 178)
+            gw.show_graph = not gw.show_graph
+
+    @staticmethod
+    def _resize_window(w, h):
+        try:
+            subprocess.run(
+                ["i3-msg", f'[instance="glucose-monitor"] resize set {w} {h}'],
+                capture_output=True,
+                timeout=2,
+            )
+        except Exception:
+            pass
 
     def action_toggle_unit(self):
         if hasattr(self, "_glucose"):
