@@ -130,25 +130,20 @@ def make_chart(values, timestamps=None):
     def value_row(v):
         return round((mx - int(v)) / rng * (height - 1))
 
-    # Build chart: each data point gets 2 columns — dot then connector
-    cols = 2 * n - 1
-    grid = [[" " for _ in range(cols)] for _ in range(height)]
-
-    for i in range(n):
-        r = value_row(values[i])
-        grid[r][2 * i] = "•"
+    grid = [[" " for _ in range(n)] for _ in range(height)]
 
     for i in range(n - 1):
         r = value_row(values[i])
         nr = value_row(values[i + 1])
-        col = 2 * i + 1
-        mid = (r + nr) // 2
         if nr < r:
-            grid[mid][col] = "╱"
+            grid[r][i] = "╱"
         elif nr > r:
-            grid[mid][col] = "╲"
+            grid[r][i] = "╲"
         else:
-            grid[r][col] = "─"
+            grid[r][i] = "─"
+
+    r_last = value_row(values[-1])
+    grid[r_last][n - 1] = "•"
 
     label_width = max(len(str(mx)), len(str(mn)))
     y_labels = []
@@ -161,28 +156,17 @@ def make_chart(values, timestamps=None):
         lines.append(y_labels[r] + " " + "".join(grid[r]))
 
     if timestamps and len(timestamps) == n:
-        times = []
-        for t in timestamps:
-            if t.tzinfo is None:
-                t = t.replace(tzinfo=timezone.utc)
-            times.append(t.astimezone().strftime("%H:%M"))
-
-        tick_cols = []
-        step = max(1, cols // 6)
-        for i in range(0, cols, step):
-            tick_cols.append(i)
-
-        x_line = " " * (label_width + 1)
+        times = [t.astimezone().strftime("%H:%M") for t in timestamps]
+        tick_step = max(1, n // 6)
+        x_buf = " " * (label_width + 1)
         col = 0
-        for i in tick_cols:
-            idx = i // 2
-            if idx < len(times):
-                label = times[idx]
-                if col <= i:
-                    gap = i - col
-                    x_line += " " * gap + label
-                    col = i + len(label)
-        lines.append(x_line)
+        for idx in range(0, n, tick_step):
+            label = times[idx]
+            if col <= idx:
+                gap = idx - col
+                x_buf += " " * gap + label
+                col = idx + len(label)
+        lines.append(x_buf)
 
     return "\n".join(lines)
 
