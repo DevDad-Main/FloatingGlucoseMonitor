@@ -170,22 +170,19 @@ def render_chart(
         indent = " " * (label_width + 1)
         x_buf = indent
         last_end = 0
+        last_label = None
 
-        x_buf += times[0]
-        last_end = len(times[0])
-
-        for i in range(1, n - 1):
+        for i in range(n):
+            label = times[i]
+            if label == last_label and i != 0:
+                continue
             col = round(i / max(n - 1, 1) * width)
-            lw = len(times[i])
+            lw = len(label)
             gap = col - last_end
-            if gap >= 1:
-                x_buf += " " * gap + times[i]
+            if i == 0 or gap >= 1:
+                x_buf += " " * max(gap, 0) + label
                 last_end = col + lw
-
-        last_col = round((n - 1) / max(n - 1, 1) * width)
-        gap = last_col - last_end
-        if gap >= 1:
-            x_buf += " " * gap + times[-1]
+                last_label = label
 
         x_label_line = x_buf
 
