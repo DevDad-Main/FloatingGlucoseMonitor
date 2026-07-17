@@ -417,8 +417,7 @@ class GlucoseApp(App):
         color: #f9e2af;
         content-align: left top;
         width: 100%;
-        height: auto;
-        min-height: 11;
+        height: 11;
         display: none;
     }
 
