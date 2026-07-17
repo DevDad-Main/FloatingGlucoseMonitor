@@ -492,6 +492,7 @@ class GlucoseApp(App):
         self._running = True
         self._fetch_in_progress = False
         self._last_graph_fetch = 0
+        self._config_mtime = self._get_config_mtime()
 
     def compose(self):
         yield Header(show_clock=False)
@@ -720,6 +721,7 @@ class GlucoseApp(App):
                 if not self._running:
                     return
 
+                self._reload_theme_if_changed()
                 time.sleep(1)
 
     def _update_display(self, latest):
@@ -744,7 +746,20 @@ class GlucoseApp(App):
             except Exception:
                 pass
 
-    def action_reload_theme(self):
+    @staticmethod
+    def _get_config_mtime():
+        try:
+            return os.path.getmtime(CONFIG_PATH)
+        except OSError:
+            return 0
+
+    def _reload_theme_if_changed(self):
+        mtime = self._get_config_mtime()
+        if mtime and mtime != self._config_mtime:
+            self._config_mtime = mtime
+            self._apply_theme_now()
+
+    def _apply_theme_now(self):
         self.config = load_config()
         self._theme = {**DEFAULT_THEME, **(self.config.get("theme") or {})}
 
@@ -756,6 +771,8 @@ class GlucoseApp(App):
             if self._glucose.value_mgdl is not None:
                 self._glucose.watch_value_mgdl(self._glucose.value_mgdl)
 
+    def action_reload_theme(self):
+        self._apply_theme_now()
         self._set_status("Theme reloaded")
 
     def action_login(self):
