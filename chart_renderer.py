@@ -1,6 +1,5 @@
 """Braille-based glucose chart renderer for Textual TUI."""
 
-import math
 from rich.text import Text
 from rich.style import Style
 
@@ -14,6 +13,9 @@ _BRAILLE_DOTS = [
     (1, 2, 0x20),
     (1, 3, 0x80),
 ]
+
+MGDL_LABELS = [350, 300, 250, 200, 150, 100, 50]
+MMOL_LABELS = [19.4, 16.7, 13.9, 11.1, 8.3, 5.6, 2.8]
 
 
 def _braille_char(dot_bits):
@@ -56,9 +58,10 @@ def render_chart(
     values,
     timestamps=None,
     width=40,
-    height=8,
+    height=7,
     low_threshold=70,
     high_threshold=180,
+    use_mmol=False,
     theme=None,
 ):
     n = len(values)
@@ -70,7 +73,16 @@ def render_chart(
     high_color = theme.get("high", "#fab387")
     normal_color = theme.get("normal", "#a6e3a1")
     muted_color = theme.get("muted", "#585b70")
-    accent_color = theme.get("accent", "#f9e2af")
+
+    if use_mmol:
+        conv = 18.0182
+        lo_thresh = round(low_threshold / conv, 1)
+        hi_thresh = round(high_threshold / conv, 1)
+        y_labels_display = MMOL_LABELS
+    else:
+        lo_thresh = low_threshold
+        hi_thresh = high_threshold
+        y_labels_display = MGDL_LABELS
 
     y_lo, y_hi = 0, 350
     y_range = y_hi - y_lo
@@ -94,7 +106,6 @@ def render_chart(
         for px, py in _bresenham(x0, y0, x1, y1):
             trace.add((px, py))
 
-    # Determine which braille rows contain low/high thresholds
     guide_rows = set()
     for threshold in (low_threshold, high_threshold):
         sy = value_to_sub_y(threshold)
@@ -124,9 +135,11 @@ def render_chart(
 
             if has_trace:
                 val = _interp_value(col * 2 + 1, values, sub_cols)
-                if val < low_threshold:
+                if use_mmol:
+                    val = val / 18.0182
+                if val < lo_thresh:
                     style = Style(color=low_color)
-                elif val > high_threshold:
+                elif val > hi_thresh:
                     style = Style(color=high_color)
                 else:
                     style = Style(color=normal_color)
@@ -137,11 +150,10 @@ def render_chart(
 
         braille_rows.append((cells, cell_styles))
 
-    label_width = max(len(str(y_hi)), len(str(y_lo)), 3)
-    librelink_labels = [350, 300, 250, 200, 150, 100, 50, 0]
+    label_width = 4 if use_mmol else 3
     y_labels = []
     for r in range(height):
-        label = librelink_labels[r] if r < len(librelink_labels) else 0
+        label = y_labels_display[r] if r < len(y_labels_display) else ""
         y_labels.append(f"{label:>{label_width}}")
 
     x_label_line = ""
@@ -186,21 +198,4 @@ def render_chart(
     if x_label_line:
         lines.append(Text(x_label_line, style=Style(color=muted_color)))
 
-    if n > 0:
-        last_val = values[-1]
-        val_str = f"{last_val:.0f}"
-        if last_val < low_threshold:
-            marker_style = Style(color=low_color, bold=True)
-        elif last_val > high_threshold:
-            marker_style = Style(color=high_color, bold=True)
-        else:
-            marker_style = Style(color=normal_color, bold=True)
-        marker_line = Text()
-        marker_line.append(" " * (label_width + 1))
-        marker_line.append("● ", style=marker_style)
-        marker_line.append(val_str, style=marker_style)
-        marker_line.append(" mg/dL", style=Style(color=muted_color))
-        lines.append(marker_line)
-
-    result = Text("\n").join(lines)
-    return result
+    return Text("\n").join(lines)

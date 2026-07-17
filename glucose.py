@@ -304,12 +304,12 @@ class GlucoseWidget(Static):
                 self.graph_data.history,
                 self.graph_data.times,
                 width=avail,
-                height=8,
+                height=7,
                 low_threshold=LOW,
                 high_threshold=HIGH,
+                use_mmol=self.use_mmol,
                 theme=getattr(self.app, "_theme", None),
             )
-            w.styles.display = "block"
             w.update(text)
         elif self.show_graph:
             w.styles.display = "block"
@@ -416,7 +416,7 @@ class GlucoseApp(App):
         color: #f9e2af;
         content-align: left top;
         width: 100%;
-        height: 11;
+        height: 9;
         display: none;
     }
 
