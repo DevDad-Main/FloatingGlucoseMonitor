@@ -275,27 +275,32 @@ class GlucoseWidget(Static):
 
     def watch_graph_data(self, data):
         if self.show_graph and data and len(data.history) >= 2:
-            self._render_chart()
+            self.set_timer(0.0, self._render_chart)
 
     def watch_show_graph(self, val):
-        big_row = self.query_one(".big_row")
-        compact_row = self.query_one(".compact_row")
-        trend_label = self.query_one("#trend_label")
-        if val:
-            big_row.styles.display = "none"
-            compact_row.styles.display = "block"
-            trend_label.styles.display = "none"
-        else:
-            big_row.styles.display = "block"
-            compact_row.styles.display = "none"
-            trend_label.styles.display = "block"
+        try:
+            big_row = self.query_one(".big_row")
+            compact_row = self.query_one(".compact_row")
+            trend_label = self.query_one("#trend_label")
+            chart = self.query_one("#chart")
+            if val:
+                big_row.styles.display = "none"
+                compact_row.styles.display = "block"
+                trend_label.styles.display = "none"
+            else:
+                big_row.styles.display = "block"
+                compact_row.styles.display = "none"
+                trend_label.styles.display = "block"
+            chart.display = val
+        except Exception:
+            pass
         self._render_chart()
 
     def _render_chart(self):
         w = self._safe("chart")
-        if not w:
+        if not w or not self.show_graph:
             return
-        if self.show_graph and self.graph_data and len(self.graph_data.history) >= 2:
+        if self.graph_data and len(self.graph_data.history) >= 2:
             screen_width = getattr(self.app.screen.size, "width", 0)
             if screen_width <= 10:
                 screen_width = getattr(self.app.size, "width", 80)
@@ -311,11 +316,8 @@ class GlucoseWidget(Static):
                 theme=getattr(self.app, "_theme", None),
             )
             w.update(text)
-        elif self.show_graph:
-            w.styles.display = "block"
+        else:
             w.update("waiting for data…")
-        elif not self.show_graph:
-            w.styles.display = "none"
 
 
 class GlucoseApp(App):
