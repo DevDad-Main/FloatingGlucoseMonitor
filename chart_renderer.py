@@ -63,6 +63,7 @@ def render_chart(
     high_threshold=180,
     use_mmol=False,
     theme=None,
+    graph_hours=None,
 ):
     n = len(values)
     if n < 2 or width < 4:
@@ -220,5 +221,10 @@ def render_chart(
 
     if x_label_line:
         lines.append(Text(x_label_line, style=Style(color=muted_color)))
+        if graph_hours:
+            total_w = label_width + 1 + width
+            label = f"{graph_hours}h"
+            pad = (total_w - len(label)) // 2
+            lines.append(Text(" " * pad + label, style=Style(color=muted_color)))
 
     return Text("\n").join(lines)

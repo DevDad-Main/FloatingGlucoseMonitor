@@ -389,6 +389,7 @@ class GlucoseWidget(Static):
                 screen_width = getattr(self.app.size, "width", 80)
             avail = max(screen_width - 5, 10)
             lo, hi = thresholds(getattr(self.app, "config", {}))
+            hours = getattr(self.app, "config", {}).get("graph_hours", 8)
             text = render_chart(
                 self.graph_data.history,
                 self.graph_data.times,
@@ -398,6 +399,7 @@ class GlucoseWidget(Static):
                 high_threshold=hi,
                 use_mmol=self.use_mmol,
                 theme=getattr(self.app, "_theme", None),
+                graph_hours=hours,
             )
             w.update(text)
         else:
@@ -912,7 +914,6 @@ class GlucoseApp(App):
                 json.dump(self.config, f, indent=2)
         except OSError:
             pass
-        self.notify(f"Graph: {new_hours}h", timeout=2)
         if hasattr(self, "_glucose") and self._full_graph_data:
             self._slice_graph()
             self._glucose._render_chart()
