@@ -450,7 +450,6 @@ class GlucoseApp(App):
         self.client = None
         self._running = True
         self._fetch_in_progress = False
-        self._last_graph_fetch = 0
         self._config_mtime = self._get_config_mtime()
 
     def compose(self):
@@ -526,6 +525,7 @@ class GlucoseApp(App):
                 return
 
             pid = patients[0].patient_id
+            self._pid = pid
 
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "?"
@@ -551,126 +551,126 @@ class GlucoseApp(App):
             self._fetch_in_progress = True
 
             try:
-                latest = self.client.latest(pid)
+                try:
+                    latest = self.client.latest(pid)
 
-                if latest:
-                    # Only update the current glucose reading here.
-                    self.call_from_thread(
-                        self._update_display,
-                        latest,
-                    )
+                    if latest:
+                        self.call_from_thread(
+                            self._update_display,
+                            latest,
+                        )
 
-                    backoff = REFRESH_SECS
+                        backoff = REFRESH_SECS
+                    else:
+                        self.call_from_thread(
+                            self._set_status,
+                            "No glucose data",
+                        )
 
-                    # Fetch graph history less frequently.
-                    now = time.monotonic()
+                except requests.exceptions.HTTPError as e:
+                    code = e.response.status_code if e.response is not None else None
 
-                    if now - last_graph_fetch >= GRAPH_REFRESH_SECS:
+                    if code == 401:
+                        self.call_from_thread(
+                            self._set_status,
+                            "Session expired, signing in again…",
+                        )
+
                         try:
-                            graph_data = self.client.graph(pid)
+                            self.client.authenticate()
+                            latest = self.client.latest(pid)
 
-                            if graph_data:
+                            if latest:
                                 self.call_from_thread(
-                                    self._update_graph,
-                                    graph_data,
+                                    self._update_display,
+                                    latest,
                                 )
 
-                                last_graph_fetch = now
+                                backoff = REFRESH_SECS
 
-                        except requests.exceptions.HTTPError as graph_error:
-                            graph_code = (
-                                graph_error.response.status_code
-                                if graph_error.response is not None
-                                else None
-                            )
-
-                            # Do not let a graph error stop the current
-                            # glucose reading from being displayed.
-                            if graph_code in (429, 430):
-                                self.call_from_thread(
-                                    self._set_status,
-                                    "Graph request rate limited",
-                                )
-
-                        except requests.exceptions.RequestException:
-                            pass
-
-                        except Exception:
-                            pass
-
-                else:
-                    self.call_from_thread(
-                        self._set_status,
-                        "No glucose data",
-                    )
-
-            except requests.exceptions.HTTPError as e:
-                code = e.response.status_code if e.response is not None else None
-
-                if code == 401:
-                    self.call_from_thread(
-                        self._set_status,
-                        "Session expired, signing in again…",
-                    )
-
-                    try:
-                        self.client.authenticate()
-                        latest = self.client.latest(pid)
-
-                        if latest:
+                        except Exception as auth_error:
                             self.call_from_thread(
-                                self._update_display,
-                                latest,
+                                self._set_status,
+                                f"Re-authentication failed: {str(auth_error)[:60]}",
                             )
 
-                            backoff = REFRESH_SECS
+                    elif code in (429, 430):
+                        for remaining in range(backoff, 0, -1):
+                            if not self._running:
+                                return
 
-                    except Exception as auth_error:
+                            self.call_from_thread(
+                                self._set_status,
+                                f"Rate limited, retry in {remaining}s",
+                            )
+
+                            time.sleep(1)
+
+                        backoff = min(backoff * 2, 600)
+
                         self.call_from_thread(
                             self._set_status,
-                            f"Re-authentication failed: {str(auth_error)[:60]}",
+                            "Retrying…",
                         )
 
-                elif code in (429, 430):
-                    for remaining in range(backoff, 0, -1):
-                        if not self._running:
-                            return
+                        continue
+
+                    else:
+                        display_code = code if code is not None else "?"
 
                         self.call_from_thread(
                             self._set_status,
-                            f"Rate limited, retry in {remaining}s",
+                            f"HTTP {display_code}",
                         )
 
-                        time.sleep(1)
-
-                    backoff = min(backoff * 2, 600)
-
+                except requests.exceptions.RequestException as e:
                     self.call_from_thread(
                         self._set_status,
-                        "Retrying…",
+                        f"Network error: {str(e)[:60]}",
                     )
 
-                    continue
-
-                else:
-                    display_code = code if code is not None else "?"
-
+                except Exception as e:
                     self.call_from_thread(
                         self._set_status,
-                        f"HTTP {display_code}",
+                        str(e)[:80],
                     )
 
-            except requests.exceptions.RequestException as e:
-                self.call_from_thread(
-                    self._set_status,
-                    f"Network error: {str(e)[:60]}",
-                )
+                # Fetch graph history on its own cadence, even if latest() fails.
+                now = time.monotonic()
+                if now - last_graph_fetch >= GRAPH_REFRESH_SECS:
+                    try:
+                        graph_data = self.client.graph(pid)
 
-            except Exception as e:
-                self.call_from_thread(
-                    self._set_status,
-                    str(e)[:80],
-                )
+                        if graph_data:
+                            self.call_from_thread(
+                                self._update_graph,
+                                graph_data,
+                            )
+
+                            last_graph_fetch = now
+                            self.call_from_thread(
+                                self._set_status,
+                                None,
+                            )
+
+                    except requests.exceptions.HTTPError as graph_error:
+                        graph_code = (
+                            graph_error.response.status_code
+                            if graph_error.response is not None
+                            else None
+                        )
+
+                        if graph_code in (429, 430):
+                            self.call_from_thread(
+                                self._set_status,
+                                "Graph request rate limited",
+                            )
+
+                    except requests.exceptions.RequestException:
+                        pass
+
+                    except Exception:
+                        pass
 
             finally:
                 self._fetch_in_progress = False
@@ -699,10 +699,10 @@ class GlucoseApp(App):
         )
 
     def _set_status(self, msg):
-        if msg and hasattr(self, "_glucose"):
+        if hasattr(self, "_glucose"):
             try:
                 w = self._glucose.query_one("#trend_label", Static)
-                w.update(msg)
+                w.update(msg or "")
             except Exception:
                 pass
 
