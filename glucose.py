@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Optional
 
 import keyring
@@ -107,8 +108,7 @@ def get_password(email: str) -> str | None:
         return None
 
 
-def thresholds(app):
-    cfg = app.config if hasattr(app, "config") else {}
+def thresholds(cfg):
     return (
         cfg.get("low_threshold", LOW),
         cfg.get("high_threshold", HIGH),
@@ -523,6 +523,7 @@ class GlucoseApp(App):
         ("g", "toggle_graph", "Graph"),
         ("l", "login", "Login"),
         ("t", "reload_theme", "Theme"),
+        ("h", "cycle_hours", "Hours"),
         ("q", "quit", "Quit"),
     ]
 
@@ -535,6 +536,7 @@ class GlucoseApp(App):
         self._fetch_in_progress = False
         self._config_mtime = self._get_config_mtime()
         self._last_fetch_time = 0.0
+        self._full_graph_data = None
 
     def compose(self):
         yield Header(show_clock=False)
@@ -803,20 +805,28 @@ class GlucoseApp(App):
         self._last_fetch_time = time.monotonic()
 
     def _update_graph(self, graph_data):
+        self._full_graph_data = graph_data
+        self._slice_graph()
+
+    def _slice_graph(self):
         gw = self._glucose
         lo, hi = thresholds(self.config)
         hours = self.config.get("graph_hours", 8)
-        n_points = hours * GRAPH_POINTS_PER_HOUR
-        recent = graph_data[-n_points:]
+        cutoff = datetime.now() - timedelta(hours=hours)
+        recent = [r for r in self._full_graph_data if r.timestamp >= cutoff]
         vals = [reading.value_in_mg_per_dl for reading in recent]
         times = [reading.timestamp for reading in recent]
-        gw.graph_data = _GraphData(history=vals, times=times)
 
         if len(vals) >= 2:
+            actual = (times[-1] - times[0]).total_seconds() / 3600
+            if actual < hours - 1:
+                self.notify(f"{hours}h: {actual:.0f}h of data", timeout=2)
             in_range = sum(1 for v in vals if lo <= v <= hi)
             gw.tir_pct = round(in_range / len(vals) * 100)
         else:
             gw.tir_pct = None
+
+        gw.graph_data = _GraphData(history=vals, times=times)
 
     def _set_status(self, msg):
         if not msg or not hasattr(self, "_glucose"):
@@ -887,6 +897,27 @@ class GlucoseApp(App):
     def action_toggle_unit(self):
         if hasattr(self, "_glucose"):
             self._glucose.use_mmol = not self._glucose.use_mmol
+
+    def action_cycle_hours(self):
+        cycle = [6, 8, 12]
+        current = self.config.get("graph_hours", 8)
+        try:
+            idx = cycle.index(current)
+        except ValueError:
+            idx = -1
+        new_hours = cycle[(idx + 1) % len(cycle)]
+        self.config["graph_hours"] = new_hours
+        try:
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(self.config, f, indent=2)
+        except OSError:
+            pass
+        self.notify(f"Graph: {new_hours}h", timeout=2)
+        if hasattr(self, "_glucose") and self._full_graph_data:
+            self._slice_graph()
+            self._glucose._render_chart()
+        elif hasattr(self, "_glucose"):
+            self._glucose.graph_data = None
 
     def action_refresh(self):
         if self._fetch_in_progress:

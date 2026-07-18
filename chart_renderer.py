@@ -156,16 +156,13 @@ def render_chart(
         sy = max(0, min(sub_rows - 1, sy))
         y_label_row_map[sy // 4] = val
 
-    label_rows = sorted(y_label_row_map.keys())
-
-    guide_rows = set()
-    for threshold in (low_threshold, high_threshold):
+    guide_rows = {}
+    for threshold, color_key in ((low_threshold, "low"), (high_threshold, "high")):
         sy = value_to_sub_y(threshold)
         sy = max(0, min(sub_rows - 1, sy))
         gr = sy // 4
-        if label_rows:
-            nearest = min(label_rows, key=lambda x: abs(x - gr))
-            guide_rows.add(nearest)
+        if 0 <= gr < height:
+            guide_rows[gr] = color_key
 
     y_labels = []
     for r in range(height):
@@ -212,7 +209,8 @@ def render_chart(
         line = Text()
         line.append(y_labels[r], style=Style(color=muted_color))
         if r in guide_rows:
-            line.append("│", style=Style(color=muted_color))
+            clr = theme.get(guide_rows[r], muted_color)
+            line.append("─", style=Style(color=clr))
         else:
             line.append(" ")
         cells, styles = braille_rows[r]
