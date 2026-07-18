@@ -66,8 +66,22 @@ DEFAULT_THEME = {
 def load_config():
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH) as f:
-            return json.load(f)
-    return {}
+            cfg = json.load(f)
+    else:
+        cfg = {}
+    defaults = {
+        "low_threshold": 70,
+        "high_threshold": 180,
+        "graph_hours": 8,
+    }
+    changed = False
+    for k, v in defaults.items():
+        if k not in cfg:
+            cfg[k] = v
+            changed = True
+    if changed:
+        save_config(cfg)
+    return cfg
 
 
 def save_config(data):
