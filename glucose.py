@@ -667,10 +667,6 @@ class GlucoseApp(App):
                             )
 
                             last_graph_fetch = now
-                            self.call_from_thread(
-                                self._set_status,
-                                None,
-                            )
 
                     except requests.exceptions.HTTPError as graph_error:
                         graph_code = (
@@ -718,12 +714,13 @@ class GlucoseApp(App):
         )
 
     def _set_status(self, msg):
-        if hasattr(self, "_glucose"):
-            try:
-                w = self._glucose.query_one("#trend_label", Static)
-                w.update(msg or "")
-            except Exception:
-                pass
+        if not msg or not hasattr(self, "_glucose"):
+            return
+        try:
+            w = self._glucose.query_one("#trend_label", Static)
+            w.update(msg)
+        except Exception:
+            pass
 
     @staticmethod
     def _get_config_mtime():
