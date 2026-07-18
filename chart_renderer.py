@@ -222,9 +222,8 @@ def render_chart(
     if x_label_line:
         lines.append(Text(x_label_line, style=Style(color=muted_color)))
         if graph_hours:
-            total_w = label_width + 1 + width
-            label = f"{graph_hours}h"
-            pad = (total_w - len(label)) // 2
-            lines.append(Text(" " * pad + label, style=Style(color=muted_color)))
+            inner = f"  {graph_hours}h  "
+            pad_left = (label_width + 1 + width - len(inner)) // 2
+            lines.append(Text(" " * pad_left + inner, style=Style(color=muted_color)))
 
     return Text("\n").join(lines)

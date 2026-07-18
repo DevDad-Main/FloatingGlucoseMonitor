@@ -1,6 +1,10 @@
 # Floating Glucose Monitor
 
 <p align="center">
+  <video src="screenshots/glucose-demo.mp4" width="90%" autoplay loop muted playsinline></video>
+</p>
+
+<p align="center">
   A clean floating terminal interface for viewing live FreeStyle LibreLinkUp glucose readings on Linux.
 </p>
 
