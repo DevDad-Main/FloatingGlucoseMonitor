@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <img src="screenshots/glucose-notifications.png" alt="Desktop notifications with dunst" width="90%">
+</p>
+
+<p align="center">
   <img src="screenshots/glucose-graph-mgdl.png" alt="Graph — mg/dL mode" width="90%">
 </p>
 
@@ -253,6 +257,7 @@ The configuration file may contain:
 * `low_threshold` — low glucose alert threshold (default 70 mg/dL)
 * `high_threshold` — high glucose alert threshold (default 180 mg/dL)
 * `graph_hours` — hours of history to show on the graph (default 8); cycle with `h`
+* `notification_unit` — unit for desktop notifications (default `"mgdl"`, can be `"mmol"`)
 
 The password is stored separately through the system keyring.
 

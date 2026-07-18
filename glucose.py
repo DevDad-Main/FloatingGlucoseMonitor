@@ -544,16 +544,19 @@ class GlucoseApp(App):
         gw._last_mgdl = new_val
 
         lo, hi = thresholds(self.config)
+        notif_unit = self.config.get("notification_unit", "mgdl")
         if last_val is not None:
             was_normal = last_val >= lo and last_val <= hi
             now_abnormal = new_val < lo or new_val > hi
             if not was_normal and now_abnormal:
                 pass
             elif was_normal and now_abnormal:
+                val = new_val if notif_unit == "mgdl" else round(new_val / 18.0182, 1)
+                unit_label = "mg/dL" if notif_unit == "mgdl" else "mmol/L"
                 if new_val < lo:
-                    msg = f"Low glucose: {new_val} mg/dL"
+                    msg = f"Low glucose: {val} {unit_label}"
                 else:
-                    msg = f"High glucose: {new_val} mg/dL"
+                    msg = f"High glucose: {val} {unit_label}"
                 subprocess.run(
                     ["notify-send", "-u", "critical", "Glucose Alert", msg],
                     timeout=2,

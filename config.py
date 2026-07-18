@@ -16,6 +16,7 @@ def load_config():
         "low_threshold": 70,
         "high_threshold": 180,
         "graph_hours": 8,
+        "notification_unit": "mgdl",
     }
     changed = False
     for k, v in defaults.items():
