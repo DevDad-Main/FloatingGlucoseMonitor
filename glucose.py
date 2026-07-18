@@ -211,6 +211,7 @@ class GlucoseWidget(Static):
     use_mmol = reactive(False)
     graph_data = reactive(None)
     show_graph = reactive(False)
+    avg_mgdl = reactive(None)
 
     def compose(self):
         with Vertical(classes="main"):
@@ -258,16 +259,28 @@ class GlucoseWidget(Static):
             w.update(make_big_text(display))
             w.styles.color = clr
 
+        avg_str = ""
+        if self.avg_mgdl is not None and self.show_graph:
+            if self.use_mmol:
+                avg_display = f"{self.avg_mgdl / 18.0182:.1f}"
+            else:
+                avg_display = str(self.avg_mgdl)
+            avg_str = f"  {avg_display} avg"
+
         w = self._safe("compact_val")
         if w:
-            w.update(f"{display} {trend_char}  {unit}  {label}")
+            w.update(f"{display} {trend_char}{avg_str}  {unit}  {label}")
             w.styles.color = clr
 
         w = self._safe("trend_label")
         if w:
-            info = f"{display} {trend_char}  {unit}  {label}"
+            info = f"{display} {trend_char}{avg_str}  {unit}  {label}"
             w.update(info.lstrip())
             w.styles.color = t.get("muted", "#585b70")
+
+    def watch_avg_mgdl(self, val):
+        if self.value_mgdl is not None:
+            self.watch_value_mgdl(self.value_mgdl)
 
     def watch_use_mmol(self, val):
         if self.value_mgdl is not None:
@@ -275,7 +288,11 @@ class GlucoseWidget(Static):
         self._render_chart()
 
     def watch_graph_data(self, data):
-        if self.show_graph and data and len(data.history) >= 2:
+        if data and len(data.history) >= 2:
+            self.avg_mgdl = round(sum(data.history) / len(data.history))
+        else:
+            self.avg_mgdl = None
+        if self.show_graph:
             self.set_timer(0.0, self._render_chart)
 
     def watch_show_graph(self, val):
@@ -295,6 +312,8 @@ class GlucoseWidget(Static):
             chart.display = val
         except Exception:
             pass
+        if self.value_mgdl is not None:
+            self.watch_value_mgdl(self.value_mgdl)
         self._render_chart()
 
     def _render_chart(self):
