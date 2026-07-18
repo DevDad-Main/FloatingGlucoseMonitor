@@ -1,11 +1,11 @@
 # Floating Glucose Monitor
 
 <p align="center">
-  <img src="screenshots/glucose-demo.gif" alt="Glucose monitor demo" width="90%">
+  A clean floating terminal interface for viewing live FreeStyle LibreLinkUp glucose readings on Linux.
 </p>
 
 <p align="center">
-  A clean floating terminal interface for viewing live FreeStyle LibreLinkUp glucose readings on Linux.
+  <img src="screenshots/glucose-demo.gif" alt="Glucose monitor demo" width="90%">
 </p>
 
 <p align="center">
