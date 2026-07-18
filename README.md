@@ -5,37 +5,37 @@
 </p>
 
 <p align="center">
-  <img src="glucose-graph-mgdl.png" alt="Graph — mg/dL mode" width="90%">
+  <img src="screenshots/glucose-graph-mgdl.png" alt="Graph — mg/dL mode" width="90%">
 </p>
 
 <p align="center">
-  <img src="glucose-graph-mmol.png" alt="Graph — mmol/L mode" width="90%">
+  <img src="screenshots/glucose-graph-mmol.png" alt="Graph — mmol/L mode" width="90%">
 </p>
 
 <p align="center">
-  <img src="glucose-tmux.png" alt="Glucose monitor running in tmux" width="90%">
+  <img src="screenshots/glucose-tmux.png" alt="Glucose monitor running in tmux" width="90%">
 </p>
 
 > It's also fully usable inside tmux and other terminal multiplexers — no floating window required.
 
 <p align="center">
-  <img src="glucose.jpg" alt="Catppuccin Mocha — mg/dL" width="90%">
+  <img src="screenshots/glucose.jpg" alt="Catppuccin Mocha — mg/dL" width="90%">
 </p>
 
 <p align="center">
-  <img src="glucose-mmol.jpg" alt="Catppuccin Mocha — mmol/L" width="90%">
+  <img src="screenshots/glucose-mmol.jpg" alt="Catppuccin Mocha — mmol/L" width="90%">
 </p>
 
 <p align="center">
-  <img src="glucose-gruvbox.png" alt="Gruvbox theme" width="90%">
+  <img src="screenshots/glucose-gruvbox.png" alt="Gruvbox theme" width="90%">
 </p>
 
 <p align="center">
-  <img src="glucose-tokyo.png" alt="Tokyo Night theme" width="90%">
+  <img src="screenshots/glucose-tokyo.png" alt="Tokyo Night theme" width="90%">
 </p>
 
 <p align="center">
-  <img src="gluocse-monochrome.png" alt="Monochrome theme" width="90%">
+  <img src="screenshots/gluocse-monochrome.png" alt="Monochrome theme" width="90%">
 </p>
 
 <p align="center">
@@ -225,16 +225,13 @@ The graph uses time‑based windowing: it shows all data from the last `graph_ho
 | ------------------ | ------------------------------------------------------------ |
 | `glucose.py`       | Main Textual application                                     |
 | `chart_renderer.py`| Braille-based glucose history chart renderer                 |
+| `constants.py`     | Shared constants and data types                              |
+| `config.py`        | Configuration loading, saving, and helpers                   |
+| `screens.py`       | Login screen                                                 |
 | `run.sh`           | Activates the virtual environment and starts the application |
 | `toggle.sh`        | Opens or toggles the floating kitty window                   |
 | `diagnose.sh`      | Tests LibreLinkUp API regions and connectivity               |
-| `glucose.jpg`      | Screenshot — Catppuccin Mocha mg/dL                         |
-| `glucose-mmol.jpg` | Screenshot — Catppuccin Mocha mmol/L                        |
-| `glucose-gruvbox.png` | Screenshot — Gruvbox theme                                |
-| `glucose-tokyo.png` | Screenshot — Tokyo Night theme                              |
-| `gluocse-monochrome.png` | Screenshot — Monochrome theme                          |
-| `glucose-graph-mgdl.png` | Screenshot — Graph in mg/dL mode                     |
-| `glucose-graph-mmol.png` | Screenshot — Graph in mmol/L mode                    |
+| `screenshots/`     | Directory containing all screenshots                         |
 
 ## Configuration
 

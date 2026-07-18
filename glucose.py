@@ -4,227 +4,38 @@ import os
 import subprocess
 import threading
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Optional
 
-import keyring
 import requests
 from pylibrelinkup import PyLibreLinkUp
 from pylibrelinkup.api_url import APIUrl
-from pylibrelinkup.models.data import Trend
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
-from textual.widgets import Static, Header, Footer, Input, Label
-from textual.screen import Screen
+from textual.widgets import Static, Header, Footer
 
 from chart_renderer import render_chart
-
-CONFIG_PATH = os.path.expanduser("~/.config/glucose-monitor/config.json")
-
-TREND_GLYPH = {
-    Trend.DOWN_FAST: "\u2b07",
-    Trend.DOWN_SLOW: "\u2198",
-    Trend.STABLE: "\u27a1",
-    Trend.UP_SLOW: "\u2197",
-    Trend.UP_FAST: "\u2b06",
-}
-
-TREND_LABEL = {
-    Trend.DOWN_FAST: "dropping fast",
-    Trend.DOWN_SLOW: "dropping",
-    Trend.STABLE: "stable",
-    Trend.UP_SLOW: "rising",
-    Trend.UP_FAST: "rising fast",
-}
-
-LOW = 70
-HIGH = 180
-REFRESH_SECS = 60
-GRAPH_REFRESH_SECS = 300
-GRAPH_POINTS_PER_HOUR = 12  # 5-min intervals
-
-@dataclass
-class _GraphData:
-    history: list
-    times: list
-
-DEFAULT_THEME = {
-    "bg": "#1e1e2e",
-    "fg": "#cdd6f4",
-    "accent": "#f9e2af",
-    "low": "#f38ba8",
-    "high": "#fab387",
-    "normal": "#a6e3a1",
-    "muted": "#585b70",
-    "surface": "#313244",
-    "border": "#585b70",
-}
-
-
-def load_config():
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH) as f:
-            cfg = json.load(f)
-    else:
-        cfg = {}
-    defaults = {
-        "low_threshold": 70,
-        "high_threshold": 180,
-        "graph_hours": 8,
-    }
-    changed = False
-    for k, v in defaults.items():
-        if k not in cfg:
-            cfg[k] = v
-            changed = True
-    if changed:
-        save_config(cfg)
-    return cfg
-
-
-def save_config(data):
-    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(data, f, indent=2)
-
-
-KEYRING_SERVICE = "glucose-monitor"
-
-
-def store_password(email: str, password: str):
-    try:
-        keyring.set_password(KEYRING_SERVICE, email, password)
-    except Exception:
-        pass
-
-
-def get_password(email: str) -> str | None:
-    try:
-        return keyring.get_password(KEYRING_SERVICE, email)
-    except Exception:
-        return None
-
-
-def thresholds(cfg):
-    return (
-        cfg.get("low_threshold", LOW),
-        cfg.get("high_threshold", HIGH),
-    )
-
-
-def color_for(val_mgdl: int, theme: dict, lo=LOW, hi=HIGH) -> str:
-    if val_mgdl < lo:
-        return theme.get("low", DEFAULT_THEME["low"])
-    elif val_mgdl > hi:
-        return theme.get("high", DEFAULT_THEME["high"])
-    return theme.get("normal", DEFAULT_THEME["normal"])
-
-
-DIGITS = {
-    "0": ["███", "█ █", "█ █", "█ █", "███"],
-    "1": ["  █", "  █", "  █", "  █", "  █"],
-    "2": ["███", "  █", "███", "█  ", "███"],
-    "3": ["███", "  █", "███", "  █", "███"],
-    "4": ["█ █", "█ █", "███", "  █", "  █"],
-    "5": ["███", "█  ", "███", "  █", "███"],
-    "6": ["███", "█  ", "███", "█ █", "███"],
-    "7": ["███", "  █", "  █", "  █", "  █"],
-    "8": ["███", "█ █", "███", "█ █", "███"],
-    "9": ["███", "█ █", "███", "  █", "███"],
-    ".": ["   ", "   ", "   ", "   ", " · "],
-}
-
-
-def make_big_text(text: str) -> str:
-    lines = [""] * 5
-    for ch in text:
-        pattern = DIGITS.get(ch, DIGITS["0"])
-        for i in range(5):
-            lines[i] += pattern[i] + " "
-    return "\n".join(lines)
-
-
-REGION_HELP = "Options: US, EU, EU2, AE, AP, AU, CA, DE, FR, JP, LA, RU (Poland → EU)"
-
-
-class LoginScreen(Screen):
-    def compose(self):
-        yield Container(
-            Static("Glucose Monitor", classes="title"),
-            Static("Enter your LibreLinkUp credentials", classes="subtitle"),
-            Label("Email", classes="field_label"),
-            Input(placeholder="your@email.com", id="email_input"),
-            Label("Password", classes="field_label"),
-            Input(placeholder="password", password=True, id="pass_input"),
-            Label(f"Region  {REGION_HELP}", classes="field_label"),
-            Input(placeholder="EU", value="EU", id="region_input"),
-            Static("", id="login_error"),
-            Static("Ctrl+S to save  |  Ctrl+Q to quit", id="login_hint"),
-            id="login_box",
-        )
-
-    def on_mount(self):
-        self._apply_theme()
-        self.query_one("#email_input", Input).focus()
-
-    def _apply_theme(self):
-        t = getattr(self.app, "_theme", DEFAULT_THEME)
-        bg = t.get("bg", "#1e1e2e")
-        fg = t.get("fg", "#cdd6f4")
-        surface = t.get("surface", "#313244")
-        accent = t.get("accent", "#f9e2af")
-        muted = t.get("muted", "#585b70")
-        self.styles.border = ("solid", accent)
-        for w in self.query(".title"):
-            w.styles.color = accent
-        for w in self.query(".subtitle"):
-            w.styles.color = muted
-        for w in self.query("#login_hint"):
-            w.styles.color = muted
-        for w in self.query(".field_label"):
-            w.styles.color = muted
-        for inp in self.query(Input):
-            inp.styles.background = surface
-            inp.styles.color = fg
-            inp.styles.border = ("solid", muted)
-
-    def on_input_submitted(self, event: Input.Submitted):
-        ids = ["email_input", "pass_input", "region_input"]
-        for i, sel in enumerate(ids):
-            if event.input.id == sel:
-                if i < len(ids) - 1:
-                    self.query_one(f"#{ids[i + 1]}", Input).focus()
-                else:
-                    self._do_save()
-
-    def on_input_focused(self, event: Input.Focused):
-        self.query_one("#login_error", Static).update("")
-
-    def on_key(self, event):
-        if event.key == "ctrl+s":
-            self._do_save()
-            return
-        if event.key == "ctrl+q":
-            self.app.exit()
-            return
-
-    def _do_save(self):
-        email = self.query_one("#email_input", Input).value.strip()
-        password = self.query_one("#pass_input", Input).value
-        region = self.query_one("#region_input", Input).value.strip().upper()
-        if not email or not password:
-            self.query_one("#login_error", Static).update("Email and password required")
-            return
-        store_password(email, password)
-        cfg = {**self.app.config, "email": email, "region": region}
-        cfg.pop("password", None)
-        save_config(cfg)
-        self.app.config = cfg
-        self.app.pop_screen()
-        self.app.start_glucose()
+from config import (
+    color_for,
+    get_password,
+    load_config,
+    save_config,
+    store_password,
+    thresholds,
+)
+from constants import (
+    CONFIG_PATH,
+    DEFAULT_THEME,
+    GRAPH_POINTS_PER_HOUR,
+    GRAPH_REFRESH_SECS,
+    REFRESH_SECS,
+    TREND_GLYPH,
+    TREND_LABEL,
+    GraphData,
+    make_big_text,
+)
+from screens import LoginScreen
 
 
 class GlucoseWidget(Static):
@@ -589,17 +400,10 @@ class GlucoseApp(App):
 
         backoff = REFRESH_SECS
         pid = None
-
-        # A value of 0 means the graph will be fetched immediately
-        # after the first successful glucose reading.
         last_graph_fetch = 0.0
 
-        # Authenticate and retrieve the patient once before polling.
         try:
-            self.call_from_thread(
-                self._set_status,
-                "Authenticating…",
-            )
+            self.call_from_thread(self._set_status, "Authenticating\u2026")
 
             self.client.authenticate()
             patients = self.client.get_patients()
@@ -617,21 +421,16 @@ class GlucoseApp(App):
 
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code if e.response is not None else "?"
-
             self.call_from_thread(
-                self._set_status,
-                f"Authentication failed: HTTP {code}",
+                self._set_status, f"Authentication failed: HTTP {code}"
             )
-
             self._fetch_in_progress = False
             return
 
         except Exception as e:
             self.call_from_thread(
-                self._set_status,
-                f"Authentication failed: {str(e)[:60]}",
+                self._set_status, f"Authentication failed: {str(e)[:60]}"
             )
-
             self._fetch_in_progress = False
             return
 
@@ -643,25 +442,17 @@ class GlucoseApp(App):
                     latest = self.client.latest(pid)
 
                     if latest:
-                        self.call_from_thread(
-                            self._update_display,
-                            latest,
-                        )
-
+                        self.call_from_thread(self._update_display, latest)
                         backoff = REFRESH_SECS
                     else:
-                        self.call_from_thread(
-                            self._set_status,
-                            "No glucose data",
-                        )
+                        self.call_from_thread(self._set_status, "No glucose data")
 
                 except requests.exceptions.HTTPError as e:
                     code = e.response.status_code if e.response is not None else None
 
                     if code == 401:
                         self.call_from_thread(
-                            self._set_status,
-                            "Session expired, signing in again…",
+                            self._set_status, "Session expired, signing in again\u2026"
                         )
 
                         try:
@@ -669,11 +460,7 @@ class GlucoseApp(App):
                             latest = self.client.latest(pid)
 
                             if latest:
-                                self.call_from_thread(
-                                    self._update_display,
-                                    latest,
-                                )
-
+                                self.call_from_thread(self._update_display, latest)
                                 backoff = REFRESH_SECS
 
                         except Exception as auth_error:
@@ -686,55 +473,36 @@ class GlucoseApp(App):
                         for remaining in range(backoff, 0, -1):
                             if not self._running:
                                 return
-
                             self.call_from_thread(
-                                self._set_status,
-                                f"Rate limited, retry in {remaining}s",
+                                self._set_status, f"Rate limited, retry in {remaining}s"
                             )
-
                             time.sleep(1)
 
                         backoff = min(backoff * 2, 600)
-
-                        self.call_from_thread(
-                            self._set_status,
-                            "Retrying…",
-                        )
-
+                        self.call_from_thread(self._set_status, "Retrying\u2026")
                         continue
 
                     else:
                         display_code = code if code is not None else "?"
-
                         self.call_from_thread(
-                            self._set_status,
-                            f"HTTP {display_code}",
+                            self._set_status, f"HTTP {display_code}"
                         )
 
                 except requests.exceptions.RequestException as e:
                     self.call_from_thread(
-                        self._set_status,
-                        f"Network error: {str(e)[:60]}",
+                        self._set_status, f"Network error: {str(e)[:60]}"
                     )
 
                 except Exception as e:
-                    self.call_from_thread(
-                        self._set_status,
-                        str(e)[:80],
-                    )
+                    self.call_from_thread(self._set_status, str(e)[:80])
 
-                # Fetch graph history on its own cadence, even if latest() fails.
                 now = time.monotonic()
                 if now - last_graph_fetch >= GRAPH_REFRESH_SECS:
                     try:
                         graph_data = self.client.graph(pid)
 
                         if graph_data:
-                            self.call_from_thread(
-                                self._update_graph,
-                                graph_data,
-                            )
-
+                            self.call_from_thread(self._update_graph, graph_data)
                             last_graph_fetch = now
 
                     except requests.exceptions.HTTPError as graph_error:
@@ -746,8 +514,7 @@ class GlucoseApp(App):
 
                         if graph_code in (429, 430):
                             self.call_from_thread(
-                                self._set_status,
-                                "Graph request rate limited",
+                                self._set_status, "Graph request rate limited"
                             )
 
                     except requests.exceptions.RequestException:
@@ -759,11 +526,9 @@ class GlucoseApp(App):
             finally:
                 self._fetch_in_progress = False
 
-            # Current glucose refresh interval.
             for _ in range(REFRESH_SECS):
                 if not self._running:
                     return
-
                 self._reload_theme_if_changed()
                 time.sleep(1)
 
@@ -771,7 +536,6 @@ class GlucoseApp(App):
         gw = self._glucose
         new_val = latest.value_in_mg_per_dl
 
-        # Delta and notification
         last_val = getattr(gw, "_last_mgdl", None)
         if last_val is not None:
             gw.delta_mgdl = new_val - last_val
@@ -779,13 +543,12 @@ class GlucoseApp(App):
             gw.delta_mgdl = 0
         gw._last_mgdl = new_val
 
-        # Desktop notification on threshold crossing
         lo, hi = thresholds(self.config)
         if last_val is not None:
             was_normal = last_val >= lo and last_val <= hi
             now_abnormal = new_val < lo or new_val > hi
             if not was_normal and now_abnormal:
-                pass  # still abnormal, no new alert
+                pass
             elif was_normal and now_abnormal:
                 if new_val < lo:
                     msg = f"Low glucose: {new_val} mg/dL"
@@ -828,7 +591,7 @@ class GlucoseApp(App):
         else:
             gw.tir_pct = None
 
-        gw.graph_data = _GraphData(history=vals, times=times)
+        gw.graph_data = GraphData(history=vals, times=times)
 
     def _set_status(self, msg):
         if not msg or not hasattr(self, "_glucose"):
