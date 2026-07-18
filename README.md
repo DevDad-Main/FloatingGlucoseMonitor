@@ -231,6 +231,7 @@ The graph uses time‑based windowing: it shows all data from the last `graph_ho
 | `run.sh`           | Activates the virtual environment and starts the application |
 | `toggle.sh`        | Opens or toggles the floating kitty window                   |
 | `diagnose.sh`      | Tests LibreLinkUp API regions and connectivity               |
+| `recording-toggle.sh` | Toggle screen region recording with slop + ffmpeg        |
 | `screenshots/`     | Directory containing all screenshots                         |
 
 ## Configuration
