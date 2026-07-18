@@ -41,8 +41,9 @@ TREND_LABEL = {
 
 LOW = 70
 HIGH = 180
-REFRESH_SECS = 60  # Current glucose every 1 minute
-GRAPH_REFRESH_SECS = 300  # Graph every 5 minutes
+REFRESH_SECS = 60
+GRAPH_REFRESH_SECS = 300
+GRAPH_POINTS_PER_HOUR = 12  # 5-min intervals
 
 @dataclass
 class _GraphData:
@@ -92,10 +93,18 @@ def get_password(email: str) -> str | None:
         return None
 
 
-def color_for(val_mgdl: int, theme: dict) -> str:
-    if val_mgdl < LOW:
+def thresholds(app):
+    cfg = app.config if hasattr(app, "config") else {}
+    return (
+        cfg.get("low_threshold", LOW),
+        cfg.get("high_threshold", HIGH),
+    )
+
+
+def color_for(val_mgdl: int, theme: dict, lo=LOW, hi=HIGH) -> str:
+    if val_mgdl < lo:
         return theme.get("low", DEFAULT_THEME["low"])
-    elif val_mgdl > HIGH:
+    elif val_mgdl > hi:
         return theme.get("high", DEFAULT_THEME["high"])
     return theme.get("normal", DEFAULT_THEME["normal"])
 
@@ -212,6 +221,8 @@ class GlucoseWidget(Static):
     graph_data = reactive(None)
     show_graph = reactive(False)
     avg_mgdl = reactive(None)
+    tir_pct = reactive(None)
+    delta_mgdl = reactive(None)
 
     def compose(self):
         with Vertical(classes="main"):
@@ -244,12 +255,13 @@ class GlucoseWidget(Static):
         if val is None:
             return
         t = getattr(self.app, "_theme", DEFAULT_THEME)
+        lo, hi = thresholds(getattr(self.app, "config", {}))
         display = (
             f"{self.value_mmol:.1f}"
             if self.use_mmol and self.value_mmol is not None
             else str(val)
         )
-        clr = color_for(val, t)
+        clr = color_for(val, t, lo, hi)
         unit = "mmol/L" if self.use_mmol else "mg/dL"
         trend_char = TREND_GLYPH.get(self.trend, "")
         label = TREND_LABEL.get(self.trend, "")
@@ -259,27 +271,51 @@ class GlucoseWidget(Static):
             w.update(make_big_text(display))
             w.styles.color = clr
 
-        avg_str = ""
+        extras = []
+        if self.delta_mgdl is not None and self.show_graph:
+            delta = self.delta_mgdl
+            if self.use_mmol:
+                delta = round(delta / 18.0182, 1)
+            sign = "+" if delta >= 0 else ""
+            extras.append(f"{sign}{delta}")
+
         if self.avg_mgdl is not None and self.show_graph:
             if self.use_mmol:
-                avg_display = f"{self.avg_mgdl / 18.0182:.1f}"
+                extras.append(f"{self.avg_mgdl / 18.0182:.1f} avg")
             else:
-                avg_display = str(self.avg_mgdl)
-            avg_str = f"  {avg_display} avg"
+                extras.append(f"{self.avg_mgdl} avg")
+
+        if self.tir_pct is not None and self.show_graph:
+            extras.append(f"TIR {self.tir_pct}%")
+
+        extras_str = "  ".join(extras)
+        sep = f"  {extras_str}  " if extras_str else "  "
+
+        age_str = ""
+        app = self.app
+        if hasattr(app, "_last_fetch_time") and app._last_fetch_time:
+            elapsed = time.monotonic() - app._last_fetch_time
+            if elapsed > 120:
+                mins = int(elapsed // 60)
+                age_str = f"  {mins}m ago"
 
         w = self._safe("compact_val")
         if w:
-            w.update(f"{display} {trend_char}{avg_str}  {unit}  {label}")
+            w.update(f"{display} {trend_char}{sep}{unit}  {label}{age_str}")
             w.styles.color = clr
 
         w = self._safe("trend_label")
         if w:
-            info = f"{display} {trend_char}{avg_str}  {unit}  {label}"
+            info = f"{display} {trend_char}{sep}{unit}  {label}{age_str}"
             w.update(info.lstrip())
             w.styles.color = t.get("muted", "#585b70")
 
     def watch_avg_mgdl(self, val):
         if self.value_mgdl is not None:
+            self.watch_value_mgdl(self.value_mgdl)
+
+    def watch_tir_pct(self, val):
+        if self.value_mgdl is not None and self.show_graph:
             self.watch_value_mgdl(self.value_mgdl)
 
     def watch_use_mmol(self, val):
@@ -325,13 +361,14 @@ class GlucoseWidget(Static):
             if screen_width <= 10:
                 screen_width = getattr(self.app.size, "width", 80)
             avail = max(screen_width - 5, 10)
+            lo, hi = thresholds(getattr(self.app, "config", {}))
             text = render_chart(
                 self.graph_data.history,
                 self.graph_data.times,
                 width=avail,
                 height=13,
-                low_threshold=LOW,
-                high_threshold=HIGH,
+                low_threshold=lo,
+                high_threshold=hi,
                 use_mmol=self.use_mmol,
                 theme=getattr(self.app, "_theme", None),
             )
@@ -470,6 +507,7 @@ class GlucoseApp(App):
         self._running = True
         self._fetch_in_progress = False
         self._config_mtime = self._get_config_mtime()
+        self._last_fetch_time = 0.0
 
     def compose(self):
         yield Header(show_clock=False)
@@ -700,18 +738,58 @@ class GlucoseApp(App):
 
     def _update_display(self, latest):
         gw = self._glucose
+        new_val = latest.value_in_mg_per_dl
 
-        gw.value_mgdl = latest.value_in_mg_per_dl
-        gw.value_mmol = latest.value_in_mg_per_dl / 18.0182
+        # Delta and notification
+        last_val = getattr(gw, "_last_mgdl", None)
+        if last_val is not None:
+            gw.delta_mgdl = new_val - last_val
+        else:
+            gw.delta_mgdl = 0
+        gw._last_mgdl = new_val
+
+        # Desktop notification on threshold crossing
+        lo, hi = thresholds(self.config)
+        if last_val is not None:
+            was_normal = last_val >= lo and last_val <= hi
+            now_abnormal = new_val < lo or new_val > hi
+            if not was_normal and now_abnormal:
+                pass  # still abnormal, no new alert
+            elif was_normal and now_abnormal:
+                if new_val < lo:
+                    msg = f"Low glucose: {new_val} mg/dL"
+                else:
+                    msg = f"High glucose: {new_val} mg/dL"
+                subprocess.run(
+                    ["notify-send", "-u", "critical", "Glucose Alert", msg],
+                    timeout=2,
+                )
+            elif not was_normal and not now_abnormal:
+                subprocess.run(
+                    ["notify-send", "-u", "normal", "Glucose Alert", "Back in range"],
+                    timeout=2,
+                )
+
+        gw.value_mgdl = new_val
+        gw.value_mmol = new_val / 18.0182
         gw.trend = latest.trend
+        self._last_fetch_time = time.monotonic()
 
     def _update_graph(self, graph_data):
         gw = self._glucose
-        recent = graph_data[-40:]
-        gw.graph_data = _GraphData(
-            history=[reading.value_in_mg_per_dl for reading in recent],
-            times=[reading.timestamp for reading in recent],
-        )
+        lo, hi = thresholds(self.config)
+        hours = self.config.get("graph_hours", 8)
+        n_points = hours * GRAPH_POINTS_PER_HOUR
+        recent = graph_data[-n_points:]
+        vals = [reading.value_in_mg_per_dl for reading in recent]
+        times = [reading.timestamp for reading in recent]
+        gw.graph_data = _GraphData(history=vals, times=times)
+
+        if len(vals) >= 2:
+            in_range = sum(1 for v in vals if lo <= v <= hi)
+            gw.tir_pct = round(in_range / len(vals) * 100)
+        else:
+            gw.tir_pct = None
 
     def _set_status(self, msg):
         if not msg or not hasattr(self, "_glucose"):

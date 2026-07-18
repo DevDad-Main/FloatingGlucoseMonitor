@@ -66,7 +66,11 @@ It is designed primarily for Linux desktops running i3wm and uses:
   * Green for values in range
   * Red for low values
   * Orange for high values
-* Recent glucose history graph
+* Recent glucose history graph with Braille rendering
+* Average glucose, time-in-range %, and delta in graph mode
+* Desktop notifications on high/low threshold crossings
+* Configurable low/high thresholds
+* Configurable graph time range (default 8 hours)
 * Toggle between `mg/dL` and `mmol/L`
 * Automatic glucose refresh
 * Less-frequent history refresh to reduce API usage
@@ -203,12 +207,15 @@ The intervals can be adjusted in `glucose.py`:
 ```python
 REFRESH_SECS = 60
 GRAPH_REFRESH_SECS = 300
+GRAPH_POINTS_PER_HOUR = 12
 ```
 
 The example above refreshes:
 
 * Current glucose every 1 minute
 * Graph history every 5 minutes
+
+The number of data points on the graph is `graph_hours × 12` (12 points per hour at 5-minute intervals). Set `graph_hours` in `config.json` to change the window (default 8).
 
 ## Project Files
 
@@ -240,6 +247,9 @@ The configuration file may contain:
 * LibreLinkUp email address
 * Selected API region
 * Theme overrides
+* `low_threshold` — low glucose alert threshold (default 70 mg/dL)
+* `high_threshold` — high glucose alert threshold (default 180 mg/dL)
+* `graph_hours` — hours of history to show on the graph (default 8)
 
 The password is stored separately through the system keyring.
 
