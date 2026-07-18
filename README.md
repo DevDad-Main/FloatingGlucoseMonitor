@@ -70,7 +70,8 @@ It is designed primarily for Linux desktops running i3wm and uses:
 * Average glucose, time-in-range %, and delta in graph mode
 * Desktop notifications on high/low threshold crossings
 * Configurable low/high thresholds
-* Configurable graph time range (default 8 hours)
+* Configurable graph time range (6/8/12h, toggle with `h`)
+* Connection age indicator (shows when data is stale)
 * Toggle between `mg/dL` and `mmol/L`
 * Automatic glucose refresh
 * Less-frequent history refresh to reduce API usage
@@ -154,6 +155,7 @@ Run `./diagnose.sh` to test connectivity with your region.
 | :-: | -------------------------------- |
 | `u` | Toggle between mg/dL and mmol/L  |
 | `g` | Toggle the glucose history graph |
+| `h` | Cycle graph time range (6/8/12h) |
 | `r` | Refresh the glucose data         |
 | `t` | Reload theme from config         |
 | `l` | Open the login screen            |
@@ -185,9 +187,9 @@ Press **`t`** inside the glucose monitor to reload the theme from config without
 | -------- | ------------------------------- |
 | `bg`     | Background colour               |
 | `fg`     | General text colour             |
-| `accent` | Screen border, chart lines      |
-| `low`    | Low glucose value (below 70)    |
-| `high`   | High glucose value (above 180)  |
+| `accent` | Screen border, chart lines, threshold guides (`─`) |
+| `low`    | Low glucose value guide line and text |
+| `high`   | High glucose value guide line and text |
 | `normal` | In-range glucose value          |
 | `muted`  | Secondary text, status messages |
 | `surface`| Input field backgrounds         |
@@ -215,7 +217,7 @@ The example above refreshes:
 * Current glucose every 1 minute
 * Graph history every 5 minutes
 
-The number of data points on the graph is `graph_hours × 12` (12 points per hour at 5-minute intervals). Set `graph_hours` in `config.json` to change the window (default 8).
+The graph uses time‑based windowing: it shows all data from the last `graph_hours`. Press `h` to cycle between 6, 8, and 12 hours. When sensor data has gaps the actual span may be shorter — a notification reports how much data is available.
 
 ## Project Files
 
@@ -249,7 +251,7 @@ The configuration file may contain:
 * Theme overrides
 * `low_threshold` — low glucose alert threshold (default 70 mg/dL)
 * `high_threshold` — high glucose alert threshold (default 180 mg/dL)
-* `graph_hours` — hours of history to show on the graph (default 8)
+* `graph_hours` — hours of history to show on the graph (default 8); cycle with `h`
 
 The password is stored separately through the system keyring.
 
