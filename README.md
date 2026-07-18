@@ -13,6 +13,12 @@
 </p>
 
 <p align="center">
+  <img src="glucose-tmux.png" alt="Glucose monitor running in tmux" width="90%">
+</p>
+
+> It's also fully usable inside tmux and other terminal multiplexers — no floating window required.
+
+<p align="center">
   <img src="glucose.jpg" alt="Catppuccin Mocha — mg/dL" width="90%">
 </p>
 
