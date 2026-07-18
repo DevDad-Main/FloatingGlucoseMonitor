@@ -350,6 +350,8 @@ class GlucoseApp(App):
         self._config_mtime = self._get_config_mtime()
         self._last_fetch_time = 0.0
         self._full_graph_data = None
+        self._force_graph_fetch = False
+        self._latest_reading = None
 
     def compose(self):
         yield Header(show_clock=False)
@@ -497,7 +499,8 @@ class GlucoseApp(App):
                     self.call_from_thread(self._set_status, str(e)[:80])
 
                 now = time.monotonic()
-                if now - last_graph_fetch >= GRAPH_REFRESH_SECS:
+                if now - last_graph_fetch >= GRAPH_REFRESH_SECS or self._force_graph_fetch:
+                    self._force_graph_fetch = False
                     try:
                         graph_data = self.client.graph(pid)
 
@@ -571,6 +574,15 @@ class GlucoseApp(App):
         gw.value_mmol = new_val / 18.0182
         gw.trend = latest.trend
         self._last_fetch_time = time.monotonic()
+
+        self._latest_reading = latest
+        if self._full_graph_data is not None:
+            readings = list(self._full_graph_data)
+            last = readings[-1] if readings else None
+            if last is None or latest.timestamp > last.timestamp:
+                readings.append(latest)
+                self._full_graph_data = readings
+                self._slice_graph()
 
     def _update_graph(self, graph_data):
         self._full_graph_data = graph_data
@@ -693,6 +705,7 @@ class GlucoseApp(App):
             self._glucose.value_mgdl = None
             self._glucose.graph_data = None
         if self._running:
+            self._force_graph_fetch = True
             threading.Thread(target=self._fetch_loop, daemon=True).start()
 
     def action_quit(self):
