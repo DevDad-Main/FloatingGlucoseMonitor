@@ -251,6 +251,12 @@ class GlucoseWidget(Static):
         except Exception:
             return None
 
+    def _safe_any(self, selector):
+        try:
+            return self.query_one(selector)
+        except Exception:
+            return None
+
     def watch_value_mgdl(self, val):
         if val is None:
             return
@@ -332,22 +338,29 @@ class GlucoseWidget(Static):
             self.set_timer(0.0, self._render_chart)
 
     def watch_show_graph(self, val):
-        try:
-            big_row = self.query_one(".big_row")
-            compact_row = self.query_one(".compact_row")
-            trend_label = self.query_one("#trend_label")
-            chart = self.query_one("#chart")
-            if val:
+        big_val = self._safe("big_value")
+        big_row = big_val.parent if big_val else None
+        compact_row = self._safe_any(".compact_row")
+        trend_label = self._safe("trend_label")
+        chart = self._safe("chart")
+        if val:
+            if big_row:
                 big_row.styles.display = "none"
+            if compact_row:
                 compact_row.styles.display = "block"
+            if trend_label:
                 trend_label.styles.display = "none"
-            else:
+            if chart:
+                chart.display = True
+        else:
+            if big_row:
                 big_row.styles.display = "block"
+            if compact_row:
                 compact_row.styles.display = "none"
+            if trend_label:
                 trend_label.styles.display = "block"
-            chart.display = val
-        except Exception:
-            pass
+            if chart:
+                chart.display = False
         if self.value_mgdl is not None:
             self.watch_value_mgdl(self.value_mgdl)
         self._render_chart()
