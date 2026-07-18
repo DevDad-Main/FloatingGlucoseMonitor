@@ -1,7 +1,7 @@
 # Floating Glucose Monitor
 
 <p align="center">
-  <video src="screenshots/glucose-demo.mp4" width="90%" autoplay loop muted playsinline></video>
+  <img src="screenshots/glucose-demo.gif" alt="Glucose monitor demo" width="90%">
 </p>
 
 <p align="center">
