@@ -15,7 +15,7 @@ _BRAILLE_DOTS = [
 ]
 
 MGDL_LABELS = [350, 300, 250, 200, 150, 100, 50]
-MMOL_LABELS = [19.4, 16.7, 13.9, 11.1, 8.3, 5.6, 2.8]
+MMOL_LABELS = [19, 16, 13, 11, 8, 5, 2]
 
 
 def _braille_char(dot_bits):
@@ -145,7 +145,9 @@ def render_chart(
 
         braille_rows.append((cells, cell_styles))
 
-    label_width = 4 if use_mmol else 3
+    # label_width = 4 if use_mmol else 3
+    # FIX: Use fixed label_width for both as it pushes over the graph ui.
+    label_width = 3
 
     y_label_row_map = {}
     for val in y_labels_display:

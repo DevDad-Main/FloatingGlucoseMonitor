@@ -159,8 +159,9 @@ class GlucoseWidget(Static):
             self.avg_mgdl = round(sum(data.history) / len(data.history))
         else:
             self.avg_mgdl = None
+
         if self.show_graph:
-            self.set_timer(0.0, self._render_chart)
+            self._render_chart()
 
     def watch_show_graph(self, val):
         big_val = self._safe("big_value")
@@ -194,13 +195,17 @@ class GlucoseWidget(Static):
         w = self._safe("chart")
         if not w or not self.show_graph:
             return
+
         if self.graph_data and len(self.graph_data.history) >= 2:
             screen_width = getattr(self.app.screen.size, "width", 0)
+
             if screen_width <= 10:
                 screen_width = getattr(self.app.size, "width", 80)
+
             avail = max(screen_width - 5, 10)
             lo, hi = thresholds(getattr(self.app, "config", {}))
             hours = getattr(self.app, "config", {}).get("graph_hours", 8)
+
             text = render_chart(
                 self.graph_data.history,
                 self.graph_data.times,
@@ -212,9 +217,13 @@ class GlucoseWidget(Static):
                 theme=getattr(self.app, "_theme", None),
                 graph_hours=hours,
             )
+
             w.update(text)
+            w.refresh(repaint=True)
+
         else:
             w.update("waiting for data…")
+            w.refresh(repaint=True)
 
 
 class GlucoseApp(App):
@@ -486,9 +495,7 @@ class GlucoseApp(App):
 
                     else:
                         display_code = code if code is not None else "?"
-                        self.call_from_thread(
-                            self._set_status, f"HTTP {display_code}"
-                        )
+                        self.call_from_thread(self._set_status, f"HTTP {display_code}")
 
                 except requests.exceptions.RequestException as e:
                     self.call_from_thread(
@@ -499,7 +506,10 @@ class GlucoseApp(App):
                     self.call_from_thread(self._set_status, str(e)[:80])
 
                 now = time.monotonic()
-                if now - last_graph_fetch >= GRAPH_REFRESH_SECS or self._force_graph_fetch:
+                if (
+                    now - last_graph_fetch >= GRAPH_REFRESH_SECS
+                    or self._force_graph_fetch
+                ):
                     self._force_graph_fetch = False
                     try:
                         graph_data = self.client.graph(pid)
@@ -570,22 +580,63 @@ class GlucoseApp(App):
                     timeout=2,
                 )
 
+        # gw.value_mgdl = new_val
+        # gw.value_mmol = new_val / 18.0182
+        # gw.trend = latest.trend
+        # self._last_fetch_time = time.monotonic()
+
+        # self._latest_reading = latest
+        # if self._full_graph_data is not None:
+        #     readings = list(self._full_graph_data)
+        #     last = readings[-1] if readings else None
+        #     if last is None or latest.timestamp > last.timestamp:
+        #         readings.append(latest)
+        #         self._full_graph_data = readings
+        #         self._slice_graph()
         gw.value_mgdl = new_val
         gw.value_mmol = new_val / 18.0182
         gw.trend = latest.trend
         self._last_fetch_time = time.monotonic()
 
         self._latest_reading = latest
+
         if self._full_graph_data is not None:
             readings = list(self._full_graph_data)
-            last = readings[-1] if readings else None
-            if last is None or latest.timestamp > last.timestamp:
+
+            if not readings:
                 readings.append(latest)
-                self._full_graph_data = readings
-                self._slice_graph()
+            else:
+                last = readings[-1]
+
+                if latest.timestamp > last.timestamp:
+                    # A genuine new reading
+                    readings.append(latest)
+
+                elif latest.timestamp == last.timestamp:
+                    # Same timestamp, but the aPI value/trend may have changed
+                    readings[-1] = latest
+
+            self._full_graph_data = readings
+            self._slice_graph()
 
     def _update_graph(self, graph_data):
-        self._full_graph_data = graph_data
+        # self._full_graph_data = graph_data
+        # self._slice_graph()
+        readings = list(graph_data)
+        latest = self._latest_reading
+
+        if latest is not None:
+            if not readings:
+                readings.append(latest)
+            else:
+                last = readings[-1]
+
+                if latest.timestamp > last.timestamp:
+                    readings.append(latest)
+                elif latest.timestamp == last.timestamp:
+                    readings[-1] = latest
+
+        self._full_graph_data = readings
         self._slice_graph()
 
     def _slice_graph(self):
@@ -606,7 +657,16 @@ class GlucoseApp(App):
         else:
             gw.tir_pct = None
 
-        gw.graph_data = GraphData(history=vals, times=times)
+        # gw.graph_data = GraphData(history=vals, times=times)
+        # Always create a fresh GraphData object so Textual sees the changes.
+        gw.graph_data = GraphData(
+            history=list(vals),
+            times=list(times),
+        )
+
+        # Explicitly redraw when the graph is current visible
+        if gw.show_graph:
+            gw._render_chart()
 
     def _set_status(self, msg):
         if not msg or not hasattr(self, "_glucose"):
@@ -699,14 +759,15 @@ class GlucoseApp(App):
             self._glucose.graph_data = None
 
     def action_refresh(self):
-        if self._fetch_in_progress:
-            return
-        if hasattr(self, "_glucose"):
-            self._glucose.value_mgdl = None
-            self._glucose.graph_data = None
-        if self._running:
-            self._force_graph_fetch = True
-            threading.Thread(target=self._fetch_loop, daemon=True).start()
+        self._force_graph_fetch = True
+        # if self._fetch_in_progress:
+        #     return
+        # if hasattr(self, "_glucose"):
+        #     self._glucose.value_mgdl = None
+        #     self._glucose.graph_data = None
+        # if self._running:
+        #     self._force_graph_fetch = True
+        #     threading.Thread(target=self._fetch_loop, daemon=True).start()
 
     def action_quit(self):
         self._running = False
