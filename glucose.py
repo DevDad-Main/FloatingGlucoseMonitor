@@ -649,9 +649,10 @@ class GlucoseApp(App):
         times = [reading.timestamp for reading in recent]
 
         if len(vals) >= 2:
-            actual = (times[-1] - times[0]).total_seconds() / 3600
-            if actual < hours - 1:
-                self.notify(f"{hours}h: {actual:.0f}h of data", timeout=2)
+            # NOTE: Remove app notifications to ensure no screen pollution
+            # actual = (times[-1] - times[0]).total_seconds() / 3600
+            # if actual < hours - 1:
+            # self.notify(f"{hours}h: {actual:.0f}h of data", timeout=2)
             in_range = sum(1 for v in vals if lo <= v <= hi)
             gw.tir_pct = round(in_range / len(vals) * 100)
         else:
